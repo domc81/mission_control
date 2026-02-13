@@ -3,11 +3,24 @@ import { v } from "convex/values";
 import { encryptCredential, decryptCredential } from "./encryption";
 
 export const registerAgent = mutation({
-  args: { name: v.string(), role: v.string() },
+  args: { 
+    name: v.string(), 
+    role: v.string(),
+    capabilities: v.optional(v.array(v.string())),
+    workspace: v.optional(v.string()),
+    heartbeatOffset: v.optional(v.number())
+  },
   handler: async (ctx, args) => {
     const now = Date.now();
     const agentId = await ctx.db.insert("agents", {
-      name: args.name, role: args.role, status: "idle", createdAt: now, updatedAt: now
+      name: args.name, 
+      role: args.role,
+      capabilities: args.capabilities,
+      workspace: args.workspace,
+      heartbeatOffset: args.heartbeatOffset,
+      status: "idle", 
+      createdAt: now, 
+      updatedAt: now
     });
     await ctx.db.insert("auditLog", {
       eventType: "agent_registered", actorId: "system", targetType: "agent",
@@ -187,11 +200,11 @@ export const getAllAgents = query({
 export const getRecentActivities = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    const activities = await ctx.db.query("activities")
-      .withIndex("by_timestamp").order("desc").take(args.limit || 50);
+    const activities = await ctx.db.query("activities").withIndex("by_timestamp").collect();
+    const sorted = activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, args.limit || 50);
     const agents = await ctx.db.query("agents").collect();
     const agentMap = new Map(agents.map(a => [a._id.toString(), a]));
-    return activities.map(a => ({ ...a, agentName: agentMap.get(a.agentId)?.name || a.agentId }));
+    return sorted.map(a => ({ ...a, agentName: agentMap.get(a.agentId)?.name || a.agentId }));
   }
 });
 
@@ -200,12 +213,146 @@ export const getDashboard = query({
   handler: async (ctx) => {
     const agents = await ctx.db.query("agents").collect();
     const tasks = await ctx.db.query("tasks").collect();
-    const activities = await ctx.db.query("activities").withIndex("by_timestamp").order("desc").take(20);
+    const activities = await ctx.db.query("activities").withIndex("by_timestamp").collect();
+    const sortedActivities = activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 20);
     const agentsMap = new Map(agents.map(a => [a._id.toString(), a]));
     return {
       agents: agents.map(a => ({ id: a._id.toString(), name: a.name, role: a.role, status: a.status, lastHeartbeat: a.heartbeatAt })),
       taskStats: { total: tasks.length, pending: tasks.filter(t => t.status === "pending").length, inProgress: tasks.filter(t => t.status === "in_progress").length, completed: tasks.filter(t => t.status === "completed").length },
-      recentActivities: activities.map(a => ({ ...a, agentName: agentsMap.get(a.agentId)?.name || a.agentId })),
+      recentActivities: sortedActivities.map(a => ({ ...a, agentName: agentsMap.get(a.agentId)?.name || a.agentId })),
     };
+  }
+});
+
+// ========== KANBAN BOARD FUNCTIONS ==========
+
+export const getTasksByStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const tasks = await ctx.db.query("tasks").collect();
+    const agents = await ctx.db.query("agents").collect();
+    const agentMap = new Map(agents.map(a => [a._id.toString(), a]));
+    return {
+      pending: tasks.filter(t => t.status === "pending").map(t => ({ ...t, assigneesData: t.assignees.map(id => agentMap.get(id?.toString())?.name || id) })),
+      in_progress: tasks.filter(t => t.status === "in_progress").map(t => ({ ...t, assigneesData: t.assignees.map(id => agentMap.get(id?.toString())?.name || id) })),
+      review: tasks.filter(t => t.status === "review").map(t => ({ ...t, assigneesData: t.assignees.map(id => agentMap.get(id?.toString())?.name || id) })),
+      completed: tasks.filter(t => t.status === "completed").map(t => ({ ...t, assigneesData: t.assignees.map(id => agentMap.get(id?.toString())?.name || id) })),
+    };
+  }
+});
+
+// ========== ACTIVITY FILTERS ==========
+
+export const getActivitiesFiltered = query({
+  args: { 
+    agentId: v.optional(v.string()),
+    type: v.optional(v.string()),
+    since: v.optional(v.number()),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, args) => {
+    let activities = await ctx.db.query("activities").withIndex("by_timestamp").collect();
+    activities = activities.sort((a, b) => b.timestamp - a.timestamp);
+    
+    if (args.agentId) {
+      activities = activities.filter(a => a.agentId === args.agentId);
+    }
+    if (args.type) {
+      activities = activities.filter(a => a.type === args.type);
+    }
+    if (args.since) {
+      activities = activities.filter(a => a.timestamp >= args.since);
+    }
+    
+    const agents = await ctx.db.query("agents").collect();
+    const agentMap = new Map(agents.map(a => [a._id.toString(), a]));
+    
+    return activities
+      .slice(0, args.limit || 50)
+      .map(a => ({ ...a, agentName: agentMap.get(a.agentId)?.name || a.agentId }));
+  }
+});
+
+// ========== DOCUMENT PANEL CRUD ==========
+
+export const getDocuments = query({
+  args: { type: v.optional(v.union(v.literal("spec"), v.literal("memo"), v.literal("decision"), v.literal("other"))) },
+  handler: async (ctx, args) => {
+    if (args.type) {
+      return await ctx.db.query("documents").filter(q => q.eq(q.field("type"), args.type)).collect();
+    }
+    return await ctx.db.query("documents").collect();
+  }
+});
+
+export const getDocument = query({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.documentId);
+  }
+});
+
+export const createDocument = mutation({
+  args: {
+    title: v.string(),
+    content: v.string(),
+    type: v.union(v.literal("spec"), v.literal("memo"), v.literal("decision"), v.literal("other")),
+    authorId: v.string(),
+    relatedTaskId: v.optional(v.id("tasks"))
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const docId = await ctx.db.insert("documents", {
+      title: args.title,
+      content: args.content,
+      type: args.type,
+      authorId: args.authorId,
+      relatedTaskId: args.relatedTaskId,
+      createdAt: now,
+      updatedAt: now
+    });
+    await ctx.db.insert("activities", {
+      agentId: args.authorId,
+      type: "task_started",
+      message: `Created document: ${args.title}`,
+      relatedTaskId: args.relatedTaskId,
+      timestamp: now
+    });
+    return docId;
+  }
+});
+
+export const updateDocument = mutation({
+  args: {
+    documentId: v.id("documents"),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+    authorId: v.string()
+  },
+  handler: async (ctx, args) => {
+    const updates: any = { updatedAt: Date.now() };
+    if (args.title) updates.title = args.title;
+    if (args.content) updates.content = args.content;
+    
+    await ctx.db.patch(args.documentId, updates);
+    await ctx.db.insert("activities", {
+      agentId: args.authorId,
+      type: "task_started",
+      message: `Updated document`,
+      timestamp: Date.now()
+    });
+  }
+});
+
+export const deleteDocument = mutation({
+  args: { documentId: v.id("documents"), authorId: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.documentId);
+    await ctx.db.insert("activities", {
+      agentId: args.authorId,
+      type: "task_completed",
+      message: `Deleted document`,
+      timestamp: Date.now()
+    });
   }
 });

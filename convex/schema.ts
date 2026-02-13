@@ -5,6 +5,9 @@ export default defineSchema({
   agents: defineTable({
     name: v.string(),
     role: v.string(),
+    capabilities: v.optional(v.array(v.string())),
+    workspace: v.optional(v.string()),
+    heartbeatOffset: v.optional(v.number()),
     status: v.optional(v.union(v.literal("active"), v.literal("idle"), v.literal("busy"), v.literal("offline"))),
     sessionKey: v.optional(v.string()),
     heartbeatAt: v.optional(v.number()),

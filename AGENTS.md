@@ -210,3 +210,27 @@ Scan X posts, Git repos, docs for ideas — act on them autonomously
 
 Make It Yours
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
+
+---
+
+# DC81 SQUAD ROSTER
+
+## Active Agents (6)
+
+| Agent | Role | Heartbeat | Convex ID |
+|-------|------|-----------|-----------|
+| Cestra | Squad Lead | :00 | j97cnp3g5vvsaxsdv528q279m180rs94 |
+| VEDA | Product Intelligence | :02 | j9794m411dkxq7cxnxp3q64ddh80r3dd |
+| ORIN | Customer Research | :04 | j97dfmkd4f97h02cv04681ygk180rfp0 |
+| Vision | SEO Intelligence | :06 | j97exdh8gemwt69xvmegzv2tzd80s8av |
+| Loki | Content Architecture | :08 | j97fxpw585n54kf728044fax2d80sk7z |
+| Fin | Finance & Revenue | :10 | j97eyw2qhn9hma9ecr7hxak6m980s270 |
+
+## Revenue Pipeline
+
+VEDA → ORIN → Cestra → Development
+
+## Mission Control Dashboard
+- **URL:** /ui/MissionControl.tsx
+- **Features:** Kanban Board, Documents Panel, Activity Feed with filters
+- **Polling:** 5 seconds (toggle on/off)

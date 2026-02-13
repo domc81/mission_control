@@ -1,0 +1,15 @@
+{
+  "testStartTime": "2026-02-11T12:09:00Z",
+  "testEndTime": "2026-02-14T12:09:00Z",
+  "lastCheckpoint": "2026-02-11T12:09:00Z",
+  "checkpoints": [],
+  "heartbeats": {},
+  "missedHeartbeats": {},
+  "lastChecks": {
+    "email": null,
+    "calendar": null,
+    "weather": null,
+    "squadReview": null,
+    "costTracking": null
+  }
+}
