@@ -8,21 +8,35 @@
  * @module
  */
 
+import type * as claimTask from "../claimTask.js";
+import type * as completeTask from "../completeTask.js";
 import type * as createDocument from "../createDocument.js";
 import type * as deleteDocument from "../deleteDocument.js";
 import type * as encryption from "../encryption.js";
+import type * as failTask from "../failTask.js";
+import type * as generateUploadUrl from "../generateUploadUrl.js";
 import type * as getActivitiesFiltered from "../getActivitiesFiltered.js";
 import type * as getAgents from "../getAgents.js";
 import type * as getAuditLog from "../getAuditLog.js";
 import type * as getDashboard from "../getDashboard.js";
+import type * as getDeadLetterQueue from "../getDeadLetterQueue.js";
 import type * as getDocuments from "../getDocuments.js";
+import type * as getFileUrl from "../getFileUrl.js";
 import type * as getMessages from "../getMessages.js";
 import type * as getNotifications from "../getNotifications.js";
+import type * as getPendingTasksForAgent from "../getPendingTasksForAgent.js";
+import type * as getTaskById from "../getTaskById.js";
 import type * as getTasksByStatus from "../getTasksByStatus.js";
 import type * as heartbeat from "../heartbeat.js";
 import type * as markNotificationDelivered from "../markNotificationDelivered.js";
+import type * as requestApproval from "../requestApproval.js";
+import type * as requeueDeadLetter from "../requeueDeadLetter.js";
+import type * as respondToApproval from "../respondToApproval.js";
+import type * as sendMessage from "../sendMessage.js";
 import type * as updateDocument from "../updateDocument.js";
 import type * as updateTaskStatus from "../updateTaskStatus.js";
+import type * as upsertAgent from "../upsertAgent.js";
+import type * as writeTaskProgress from "../writeTaskProgress.js";
 
 import type {
   ApiFromModules,
@@ -31,21 +45,35 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  claimTask: typeof claimTask;
+  completeTask: typeof completeTask;
   createDocument: typeof createDocument;
   deleteDocument: typeof deleteDocument;
   encryption: typeof encryption;
+  failTask: typeof failTask;
+  generateUploadUrl: typeof generateUploadUrl;
   getActivitiesFiltered: typeof getActivitiesFiltered;
   getAgents: typeof getAgents;
   getAuditLog: typeof getAuditLog;
   getDashboard: typeof getDashboard;
+  getDeadLetterQueue: typeof getDeadLetterQueue;
   getDocuments: typeof getDocuments;
+  getFileUrl: typeof getFileUrl;
   getMessages: typeof getMessages;
   getNotifications: typeof getNotifications;
+  getPendingTasksForAgent: typeof getPendingTasksForAgent;
+  getTaskById: typeof getTaskById;
   getTasksByStatus: typeof getTasksByStatus;
   heartbeat: typeof heartbeat;
   markNotificationDelivered: typeof markNotificationDelivered;
+  requestApproval: typeof requestApproval;
+  requeueDeadLetter: typeof requeueDeadLetter;
+  respondToApproval: typeof respondToApproval;
+  sendMessage: typeof sendMessage;
   updateDocument: typeof updateDocument;
   updateTaskStatus: typeof updateTaskStatus;
+  upsertAgent: typeof upsertAgent;
+  writeTaskProgress: typeof writeTaskProgress;
 }>;
 
 /**

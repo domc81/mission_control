@@ -1,3 +1,4 @@
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "./convex/api";
 import "./App.css";
@@ -35,9 +36,11 @@ type Document = {
   _id: string;
   title: string;
   content: string;
-  type: "spec" | "memo" | "decision" | "other";
+  type: "spec" | "memo" | "decision" | "guide" | "other";
   authorId: string;
   createdAt: number;
+  storageId?: string;
+  fileName?: string;
 };
 
 function timeAgo(timestamp: number): string {
@@ -51,6 +54,98 @@ function timeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
+/** Minimal Markdown → HTML renderer (no external deps) */
+function renderMarkdown(md: string): string {
+  return md
+    // Headings
+    .replace(/^#### (.+)$/gm, "<h4>$1</h4>")
+    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+    // Bold + italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    // Horizontal rules
+    .replace(/^---$/gm, "<hr/>")
+    // Tables — header row
+    .replace(/^\|(.+)\|$/gm, (line) => {
+      const cells = line.split("|").filter((_, i, a) => i > 0 && i < a.length - 1);
+      // Detect separator row
+      if (cells.every(c => /^[-: ]+$/.test(c))) return "<tr data-sep/>";
+      return "<tr>" + cells.map(c => `<td>${c.trim()}</td>`).join("") + "</tr>";
+    })
+    // Wrap consecutive <tr> in <table>
+    .replace(/(<tr[^>]*>.*?<\/tr>\n?)+/gs, (block) => {
+      const rows = block.replace(/<tr data-sep\/>\n?/g, "");
+      // Promote first row to thead
+      const firstEnd = rows.indexOf("</tr>") + 5;
+      const thead = rows.slice(0, firstEnd).replace(/<td>/g, "<th>").replace(/<\/td>/g, "</th>");
+      const tbody = rows.slice(firstEnd);
+      return `<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+    })
+    // Unordered lists
+    .replace(/^[\-\*] (.+)$/gm, "<li>$1</li>")
+    .replace(/(<li>.*<\/li>\n?)+/gs, "<ul>$&</ul>")
+    // Inline code
+    .replace(/`(.+?)`/g, "<code>$1</code>")
+    // Paragraphs — blank-line separated blocks not already tagged
+    .split(/\n\n+/)
+    .map(block => {
+      const trimmed = block.trim();
+      if (/^<(h[1-6]|ul|ol|li|table|hr|blockquote)/.test(trimmed)) return trimmed;
+      if (trimmed === "") return "";
+      return `<p>${trimmed.replace(/\n/g, "<br/>")}</p>`;
+    })
+    .join("\n");
+}
+
+/** Shows a download link for a document with a Convex storageId */
+function DocumentFileLink({ storageId, fileName }: { storageId: string; fileName?: string }) {
+  const fileUrl = useQuery(api.getFileUrl.default, { storageId });
+  if (!fileUrl) return <span className="doc-file-loading">Loading file…</span>;
+  return (
+    <a
+      className="doc-file-link"
+      href={fileUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={e => e.stopPropagation()}
+    >
+      📎 {fileName || "Download file"}
+    </a>
+  );
+}
+
+function DocumentModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2 className="modal-title">{doc.title}</h2>
+            <div className="modal-meta">
+              <span className="doc-type">{doc.type}</span>
+              <span className="doc-author">by {doc.authorId}</span>
+              <span className="doc-time">{timeAgo(doc.createdAt)}</span>
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        {doc.storageId && (
+          <div className="modal-file-section">
+            <DocumentFileLink storageId={doc.storageId} fileName={doc.fileName} />
+          </div>
+        )}
+        <div
+          className="modal-body markdown-content"
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(doc.content) }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const dashboard = useQuery(api.getDashboard.default);
   const taskBoard = useQuery(api.getTasksByStatus.default);
@@ -58,6 +153,13 @@ function App() {
   const documents = useQuery(api.getDocuments.default);
   const auditLog = useQuery(api.getAuditLog.default, { limit: 20 });
   const updateTaskStatus = useMutation(api.updateTaskStatus.default);
+  const generateUploadUrl = useMutation(api.generateUploadUrl.default);
+  const createDocument = useMutation(api.createDocument.default);
+
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "done" | "error">("idle");
+  const [uploadTitle, setUploadTitle] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!dashboard) {
     return (
@@ -89,8 +191,45 @@ function App() {
     review: "Complete",
   };
 
+  async function handleFileUpload(e: React.FormEvent) {
+    e.preventDefault();
+    const file = fileInputRef.current?.files?.[0];
+    if (!file || !uploadTitle.trim()) return;
+    setUploadState("uploading");
+    try {
+      const uploadUrl = await generateUploadUrl({});
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const { storageId } = await res.json();
+      await createDocument({
+        title: uploadTitle.trim(),
+        content: `File: ${file.name}`,
+        type: "other",
+        authorId: "dominic",
+        storageId,
+        fileName: file.name,
+      });
+      setUploadTitle("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploadState("done");
+      setTimeout(() => setUploadState("idle"), 3000);
+    } catch (err) {
+      console.error(err);
+      setUploadState("error");
+      setTimeout(() => setUploadState("idle"), 4000);
+    }
+  }
+
   return (
     <div className="dashboard">
+      {selectedDoc && (
+        <DocumentModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+      )}
+
       <header className="dashboard-header">
         <h1>🎯 Mission Control</h1>
         <span className="subtitle">DC81 Operations Hub</span>
@@ -233,13 +372,46 @@ function App() {
         {/* Documents */}
         <section className="panel">
           <h2>Documents</h2>
+
+          {/* File Upload */}
+          <form className="doc-upload-form" onSubmit={handleFileUpload}>
+            <input
+              type="text"
+              placeholder="Document title"
+              value={uploadTitle}
+              onChange={e => setUploadTitle(e.target.value)}
+              className="doc-upload-title"
+            />
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="doc-upload-file"
+            />
+            <button
+              type="submit"
+              className="doc-upload-btn"
+              disabled={uploadState === "uploading"}
+            >
+              {uploadState === "uploading" ? "Uploading…" : uploadState === "done" ? "✓ Uploaded!" : uploadState === "error" ? "✗ Error" : "Upload File"}
+            </button>
+          </form>
+
           <div className="documents-list">
             {documents?.map((doc: Document) => (
-              <div key={doc._id} className="document-card">
+              <div
+                key={doc._id}
+                className="document-card document-card--clickable"
+                onClick={() => setSelectedDoc(doc)}
+              >
                 <strong>{doc.title}</strong>
                 <span className="doc-type">{doc.type}</span>
                 <span className="doc-author">by {doc.authorId}</span>
                 <span className="doc-time">{timeAgo(doc.createdAt)}</span>
+                {doc.storageId ? (
+                  <DocumentFileLink storageId={doc.storageId} fileName={doc.fileName} />
+                ) : (
+                  <span className="doc-open-hint">Click to read →</span>
+                )}
               </div>
             ))}
             {(!documents || documents.length === 0) && (

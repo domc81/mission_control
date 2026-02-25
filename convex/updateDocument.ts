@@ -6,7 +6,9 @@ export default mutation({
     documentId: v.id("documents"),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
-    type: v.optional(v.union(v.literal("spec"), v.literal("memo"), v.literal("decision"), v.literal("other"))),
+    type: v.optional(v.union(v.literal("spec"), v.literal("memo"), v.literal("decision"), v.literal("guide"), v.literal("other"))),
+    storageId: v.optional(v.string()),
+    fileName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { documentId, ...fields } = args;

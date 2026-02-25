@@ -5,9 +5,11 @@ export default mutation({
   args: {
     title: v.string(),
     content: v.string(),
-    type: v.union(v.literal("spec"), v.literal("memo"), v.literal("decision"), v.literal("other")),
+    type: v.union(v.literal("spec"), v.literal("memo"), v.literal("decision"), v.literal("guide"), v.literal("other")),
     authorId: v.string(),
     relatedTaskId: v.optional(v.id("tasks")),
+    storageId: v.optional(v.string()),
+    fileName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();

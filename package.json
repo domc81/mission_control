@@ -1,11 +1,15 @@
 {
-  "name": "mission-control",
-  "version": "0.1.0",
+  "name": "workspace-cestra",
   "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "convex:deploy": "node_modules/.bin/convex deploy --yes --typecheck disable --codegen enable --env-file .env.local",
+    "ui:build": "cd ui && npm run build",
+    "ui:deploy": "npm run ui:build && cp -r ui/dist/* /var/www/mission-control/",
+    "deploy": "npm run convex:deploy && npm run ui:deploy"
   },
   "dependencies": {
-    "convex": "^1.31.7"
+    "convex": "^1.32.0"
   }
 }
