@@ -30,7 +30,9 @@ JS_RENDERING_RESEARCH_REPORT.md
 TASK_JS_RENDERING_RESEARCH.md
 *.json
 !package.json
+!package-lock.json
 !convex.json
 !ui/package.json
+!ui/package-lock.json
 memory/
 add-guide-to-convex.json
