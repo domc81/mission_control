@@ -1,64 +1,42 @@
-# Mission Control Deployment Guide
+# DC81 Mission Control — Coolify Deployment Guide
 
-## Option 1: Vercel (Recommended - 2 minutes)
+## One-Time Setup
 
-```bash
-cd /root/.openclaw/workspace-cestra/ui
+### 1. Create New Application in Coolify
+- Go to Coolify → **New Resource** → **Application**
+- Source: **GitHub** → `domc81/mission_control`
+- Branch: `master`
+- Build pack: **Nixpacks** (auto-detected)
 
-# Install Vercel CLI
-npm i -g vercel
+### 2. Configure Paths
+| Setting | Value |
+|---|---|
+| Base Directory | `/ui` |
+| Publish Directory | *(leave blank — nixpacks handles it)* |
+| Port | `3000` |
 
-# Deploy (will ask for login)
-vercel --prod
+### 3. Add Environment Variable
+In Coolify → Environment Variables, add:
+```
+VITE_CONVEX_URL=https://exciting-warbler-274.eu-west-1.convex.cloud
 ```
 
-**Or connect to Vercel:**
-1. Push this repo to GitHub/GitLab
-2. Import project in Vercel
-3. Set `VITE_CONVEX_URL` environment variable to your Convex URL
-4. Deploy
+### 4. Deploy
+Hit **Deploy**. Coolify will:
+1. Clone `domc81/mission_control`
+2. Enter the `/ui` directory
+3. Run `npm ci && npm run build`
+4. Serve the built `dist/` on port 3000
+
+### 5. URL
+Coolify will generate a URL automatically (e.g. `mission-control.yourdomain.com`).
+You can also set a custom domain or access it via the auto-generated Coolify URL.
 
 ---
 
-## Option 2: Netlify
+## Future Deploys
+Any push to `master` on `domc81/mission_control` can trigger an auto-redeploy via Coolify's GitHub webhook (enable in Coolify app settings).
 
-```bash
-cd /root/.openclaw/workspace-cestra/ui
-
-# Build static files
-npm install
-npm run build
-
-# Deploy build/ folder to Netlify (drag & drop or CLI)
-```
-
----
-
-## Option 3: Cloudflare Pages (Free)
-
-```bash
-npm install -g wrangler
-wrangler pages deploy build
-```
-
----
-
-## Environment Variables Required
-
-For any deployment, set:
-- `VITE_CONVEX_URL=https://exciting-warbler-274.eu-west-1.convex.cloud`
-
----
-
-## What You Get
-
-Once deployed:
-- **Real-time updates** (no polling!) via Convex subscriptions
-- **Agent status** live
-- **Kanban board** drag-drop
-- **Document CRUD**
-- **Activity feed** with filters
-
-The URL will be something like:
-- `mission-control.vercel.app`
-- `dc81-dashboard.netlify.app`
+## Convex
+The Convex backend is already live at `https://exciting-warbler-274.eu-west-1.convex.cloud`.
+No changes needed there — it's deployed separately via the Convex CLI.
