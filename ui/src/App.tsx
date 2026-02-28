@@ -190,7 +190,7 @@ function DocumentModal({ doc, onClose }: { doc: Document; onClose: () => void })
 }
 
 /** Task Detail Slide-out Panel */
-function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void }) {
+function TaskDetailPanel({ task, onClose, onUpdateStatus }: { task: Task; onClose: () => void; onUpdateStatus: (args: {taskId: string; status: string}) => void }) {
   const messages = useQuery(api.getMessages.default, { taskId: task._id as any });
   const sendMessage = useMutation(api.sendMessage.default);
   const [newMessage, setNewMessage] = useState("");
@@ -234,7 +234,18 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
             <div className="task-detail-meta">
               <div className="task-meta-row">
                 <span className="meta-label">Status:</span>
-                <span className={`status-badge status-${task.status}`}>{task.status.replace("_", " ")}</span>
+                <select
+                  className={`status-badge status-${task.status}`}
+                  value={task.status}
+                  onChange={e => onUpdateStatus({ taskId: task._id, status: e.target.value })}
+                  style={{ cursor: "pointer", border: "none", background: "transparent", fontWeight: "inherit", fontSize: "inherit" }}
+                >
+                  <option value="pending">pending</option>
+                  <option value="in_progress">in progress</option>
+                  <option value="review">review</option>
+                  <option value="completed">completed</option>
+                  <option value="blocked">blocked</option>
+                </select>
               </div>
               <div className="task-meta-row">
                 <span className="meta-label">Priority:</span>
@@ -442,7 +453,7 @@ function ConversationItem({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const messages = useQuery(api.getMessages.default, { taskId: task._id as any });
+  const messages = useQuery(api.getMessages.default, isExpanded ? { taskId: task._id as any } : "skip");
 
   return (
     <div className={`conversation-item ${isExpanded ? "expanded" : ""}`}>
@@ -564,7 +575,7 @@ function App() {
       )}
       
       {selectedTask && (
-        <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} />
+        <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} onUpdateStatus={({ taskId, status }) => updateTaskStatus({ taskId: taskId as any, status: status as any })} />
       )}
 
       <header className="dashboard-header">
