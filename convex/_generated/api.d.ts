@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as addDocumentComment from "../addDocumentComment.js";
 import type * as claimTask from "../claimTask.js";
 import type * as completeTask from "../completeTask.js";
 import type * as createDocument from "../createDocument.js";
@@ -21,6 +22,7 @@ import type * as getAgents from "../getAgents.js";
 import type * as getAuditLog from "../getAuditLog.js";
 import type * as getDashboard from "../getDashboard.js";
 import type * as getDeadLetterQueue from "../getDeadLetterQueue.js";
+import type * as getDocumentComments from "../getDocumentComments.js";
 import type * as getDocuments from "../getDocuments.js";
 import type * as getFileUrl from "../getFileUrl.js";
 import type * as getMessages from "../getMessages.js";
@@ -47,6 +49,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  addDocumentComment: typeof addDocumentComment;
   claimTask: typeof claimTask;
   completeTask: typeof completeTask;
   createDocument: typeof createDocument;
@@ -60,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   getAuditLog: typeof getAuditLog;
   getDashboard: typeof getDashboard;
   getDeadLetterQueue: typeof getDeadLetterQueue;
+  getDocumentComments: typeof getDocumentComments;
   getDocuments: typeof getDocuments;
   getFileUrl: typeof getFileUrl;
   getMessages: typeof getMessages;

@@ -102,6 +102,13 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_document", ["documentId"]),
 
+  document_comments: defineTable({
+    documentId: v.id("documents"),
+    authorId: v.string(),
+    content: v.string(),
+    createdAt: v.number(),
+  }).index("by_document", ["documentId"]),
+
   activities: defineTable({
     agentId: v.string(),
     type: v.union(v.literal("heartbeat"), v.literal("task_started"), v.literal("task_completed"), v.literal("message_sent"), v.literal("credential_accessed")),
