@@ -54,6 +54,14 @@ type Document = {
   fileName?: string;
 };
 
+type DocumentComment = {
+  _id:        string;
+  documentId: string;
+  authorId:   string;
+  content:    string;
+  createdAt:  number;
+};
+
 type Message = {
   _id: string;
   taskId: string;
@@ -161,6 +169,29 @@ function DocumentFileLink({ storageId, fileName }: { storageId: string; fileName
 }
 
 function DocumentModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
+  const [newComment, setNewComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const comments = useQuery(api.getDocumentComments.default, { documentId: doc._id as any });
+  const addComment = useMutation(api.addDocumentComment.default);
+
+  async function handleAddComment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newComment.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await addComment({
+        documentId: doc._id as any,
+        authorId: "dominic",
+        content: newComment.trim(),
+      });
+      setNewComment("");
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -184,6 +215,46 @@ function DocumentModal({ doc, onClose }: { doc: Document; onClose: () => void })
           className="modal-body markdown-content"
           dangerouslySetInnerHTML={{ __html: renderMarkdown(doc.content) }}
         />
+
+        {/* Comments Section */}
+        <div className="modal-comments">
+          <h4 className="modal-comments-heading">Comments</h4>
+
+          <div className="modal-comments-list">
+            {comments?.map((comment: DocumentComment) => (
+              <div key={comment._id} className="modal-comment-item">
+                <div className="modal-comment-header">
+                  <span className="modal-comment-author">
+                    <span className="modal-comment-emoji">{getAgentEmoji(comment.authorId)}</span>
+                    {comment.authorId}
+                  </span>
+                  <span className="modal-comment-time">{timeAgo(comment.createdAt)}</span>
+                </div>
+                <div className="modal-comment-content">{comment.content}</div>
+              </div>
+            ))}
+            {(!comments || comments.length === 0) && (
+              <p className="modal-comments-empty">No comments yet. Be the first.</p>
+            )}
+          </div>
+
+          <form className="modal-comment-form" onSubmit={handleAddComment}>
+            <textarea
+              className="modal-comment-input"
+              placeholder="Add a comment..."
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              rows={2}
+            />
+            <button
+              type="submit"
+              className="modal-comment-submit"
+              disabled={!newComment.trim() || submitting}
+            >
+              {submitting ? "Posting..." : "Post Comment"}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

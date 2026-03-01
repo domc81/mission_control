@@ -11,6 +11,7 @@
 import type * as claimTask from "../claimTask.js";
 import type * as completeTask from "../completeTask.js";
 import type * as createDocument from "../createDocument.js";
+import type * as createTask from "../createTask.js";
 import type * as deleteDocument from "../deleteDocument.js";
 import type * as encryption from "../encryption.js";
 import type * as failTask from "../failTask.js";
@@ -27,6 +28,7 @@ import type * as getNotifications from "../getNotifications.js";
 import type * as getPendingTasksForAgent from "../getPendingTasksForAgent.js";
 import type * as getTaskById from "../getTaskById.js";
 import type * as getTasksByStatus from "../getTasksByStatus.js";
+import type * as getTasksWithMessages from "../getTasksWithMessages.js";
 import type * as heartbeat from "../heartbeat.js";
 import type * as markNotificationDelivered from "../markNotificationDelivered.js";
 import type * as requestApproval from "../requestApproval.js";
@@ -48,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   claimTask: typeof claimTask;
   completeTask: typeof completeTask;
   createDocument: typeof createDocument;
+  createTask: typeof createTask;
   deleteDocument: typeof deleteDocument;
   encryption: typeof encryption;
   failTask: typeof failTask;
@@ -64,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   getPendingTasksForAgent: typeof getPendingTasksForAgent;
   getTaskById: typeof getTaskById;
   getTasksByStatus: typeof getTasksByStatus;
+  getTasksWithMessages: typeof getTasksWithMessages;
   heartbeat: typeof heartbeat;
   markNotificationDelivered: typeof markNotificationDelivered;
   requestApproval: typeof requestApproval;

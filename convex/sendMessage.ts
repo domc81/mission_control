@@ -21,7 +21,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-export const sendMessage = mutation({
+export default mutation({
   args: {
     taskId: v.id("tasks"),
     authorId: v.string(),
