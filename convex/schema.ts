@@ -95,13 +95,6 @@ export default defineSchema({
     updatedAt: v.number(),
   }),
 
-  documentComments: defineTable({
-    documentId: v.id("documents"),
-    authorId: v.string(),
-    content: v.string(),
-    createdAt: v.number(),
-  }).index("by_document", ["documentId"]),
-
   document_comments: defineTable({
     documentId: v.id("documents"),
     authorId: v.string(),

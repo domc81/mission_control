@@ -1421,3 +1421,119 @@ body {
 .task-card {
   cursor: pointer;
 }
+
+/* Document Comments */
+.modal-comments {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+
+.modal-comments-heading {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 12px 0;
+}
+
+.modal-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.modal-comments-empty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.modal-comment-item {
+  background: var(--bg-secondary, #1a1a2e);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.modal-comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.modal-comment-author {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent, #7c6af7);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.modal-comment-emoji {
+  font-size: 0.85rem;
+}
+
+.modal-comment-time {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.modal-comment-content {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.modal-comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-comment-input {
+  background: var(--bg-secondary, #1a1a2e);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 0.85rem;
+  resize: vertical;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.modal-comment-input:focus {
+  outline: none;
+  border-color: var(--accent, #7c6af7);
+}
+
+.modal-comment-submit {
+  align-self: flex-end;
+  background: var(--accent, #7c6af7);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.modal-comment-submit:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.modal-comment-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
