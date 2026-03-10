@@ -1,0 +1,16 @@
+{"timestamp":"2026-03-09T18:21:51.446Z","action":"fetch_post","post_id":"f4d0daa8-3ba8-43c1-b5b7-23a05959663c","result":"pending","error":null}
+{"timestamp":"2026-03-09T18:21:51.470Z","action":"post_attempt","attempt":1,"result":"pending","error":null,"tweet_id":null}
+{"timestamp":"2026-03-09T18:21:51.680Z","action":"post_failed","attempt":1,"result":"error","error":"X API error HTTP 402: {\"account_id\":2031047344477941760,\"title\":\"CreditsDepleted\",\"detail\":\"Your enrolled account [2031047344477941760] does not have any credits to fulfill this request.\",\"type\":\"https://api.twitter.com/2/problems/credits\"}","tweet_id":null,"http_status":402}
+{"timestamp":"2026-03-09T18:21:51.710Z","action":"supabase_update","post_id":"f4d0daa8-3ba8-43c1-b5b7-23a05959663c","result":"ok","tweet_id":null,"error":null,"note":"marked failed"}
+{"timestamp":"2026-03-09T18:26:10.426Z","action":"fetch_post","post_id":"f4d0daa8-3ba8-43c1-b5b7-23a05959663c","result":"pending","error":null}
+{"timestamp":"2026-03-09T18:26:10.449Z","action":"post_attempt","attempt":1,"result":"pending","error":null,"tweet_id":null}
+{"timestamp":"2026-03-09T18:26:11.190Z","action":"post_success","attempt":1,"result":"ok","error":null,"tweet_id":"2031074078933557521","http_status":201}
+{"timestamp":"2026-03-09T18:26:11.206Z","action":"supabase_update","post_id":"f4d0daa8-3ba8-43c1-b5b7-23a05959663c","result":"ok","tweet_id":"2031074078933557521","error":null}
+{"timestamp":"2026-03-09T21:44:48.836Z","action":"fetch_post","post_id":"241217c1-f2ce-4121-a52d-dfd93aa8c2e4","result":"pending","error":null}
+{"timestamp":"2026-03-09T21:44:48.869Z","action":"post_attempt","attempt":1,"result":"pending","error":null,"tweet_id":null}
+{"timestamp":"2026-03-09T21:44:49.218Z","action":"post_success","attempt":1,"result":"ok","error":null,"tweet_id":"2031124068431228968","http_status":201}
+{"timestamp":"2026-03-09T21:44:49.235Z","action":"supabase_update","post_id":"241217c1-f2ce-4121-a52d-dfd93aa8c2e4","result":"ok","tweet_id":"2031124068431228968","error":null}
+{"timestamp":"2026-03-10T16:44:36.144Z","action":"fetch_post","post_id":"c114b2ad-964f-45c3-b3d3-533bd4e444da","result":"pending","error":null}
+{"timestamp":"2026-03-10T16:44:36.169Z","action":"post_attempt","attempt":1,"result":"pending","error":null,"tweet_id":null}
+{"timestamp":"2026-03-10T16:44:36.503Z","action":"post_success","attempt":1,"result":"ok","error":null,"tweet_id":"2031410905599078702","http_status":201}
+{"timestamp":"2026-03-10T16:44:36.535Z","action":"supabase_update","post_id":"c114b2ad-964f-45c3-b3d3-533bd4e444da","result":"ok","tweet_id":"2031410905599078702","error":null}

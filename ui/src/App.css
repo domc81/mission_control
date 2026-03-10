@@ -1537,3 +1537,252 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ===================== Gateway Bridge — Agent Status Panel ===================== */
+
+.gw-panel {}
+
+.gw-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gw-panel-header h2 {
+  margin: 0;
+}
+
+.gw-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gw-health-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--success);
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 20px;
+  padding: 2px 10px;
+  letter-spacing: 0.04em;
+}
+
+.gw-last-updated {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* ---- Connection banner ---- */
+
+.gw-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  letter-spacing: 0.03em;
+}
+
+.gw-banner--ok {
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: var(--success);
+}
+
+.gw-banner--pending {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: var(--warning);
+}
+
+.gw-banner--error {
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  color: var(--danger);
+}
+
+.gw-banner-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.gw-banner-dot--ok {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+  animation: gw-pulse 2.5s ease-in-out infinite;
+}
+
+.gw-banner-dot--pending {
+  background: var(--warning);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+  animation: gw-pulse 1.2s ease-in-out infinite;
+}
+
+.gw-banner-dot--error {
+  background: var(--danger);
+}
+
+@keyframes gw-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ---- Sessions grid ---- */
+
+.gw-sessions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+/* ---- Session card ---- */
+
+.gw-session-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.gw-session-card:hover {
+  border-color: rgba(0, 212, 255, 0.3);
+  box-shadow: var(--glow-cyan-subtle);
+}
+
+.gw-session-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.gw-session-emoji {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.gw-session-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--neon-cyan);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gw-session-kind {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(184, 77, 255, 0.15);
+  color: var(--neon-purple);
+  border: 1px solid rgba(184, 77, 255, 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.gw-session-age {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.gw-session-model {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gw-session-preview {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gw-session-preview--empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.gw-session-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.gw-session-cost {
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  color: var(--neon-magenta);
+}
+
+.gw-session-msgs {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+/* ===== Gateway bridge — additional styles ===== */
+
+.gw-session-title {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.gw-session-role {
+  font-size: 10px;
+  color: var(--text-secondary, #8888aa);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 1px;
+}
+
+.gw-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.gw-session-tokens {
+  font-size: 11px;
+  color: var(--text-secondary, #8888aa);
+  font-family: monospace;
+}
+
+.gw-session-card[data-status="active"] {
+  border-color: rgba(0, 212, 255, 0.4);
+}
+
+.gw-session-card[data-status="stale"] {
+  opacity: 0.6;
+}

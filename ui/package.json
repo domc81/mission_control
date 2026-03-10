@@ -17,6 +17,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "serve dist -s -l 3000"
+    "start": "node proxy-server.cjs & serve dist -s -l 3000",
+    "start:proxy": "node proxy-server.cjs",
+    "start:serve": "serve dist -s -l 3000"
   }
 }

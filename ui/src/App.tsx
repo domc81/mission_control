@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "./convex/api";
 import "./App.css";
+import { GatewayBridge } from "./GatewayBridge";
 
 type Agent = {
   _id: string;
@@ -715,6 +716,9 @@ function App() {
           )}
         </div>
       </section>
+
+      {/* Gateway — Agent Status Panel */}
+      <GatewayBridge />
 
       {/* Task Board */}
       <section className="panel">

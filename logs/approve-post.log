@@ -1,0 +1,13 @@
+[17:58:14Z] approve-post.sh start — post_id=00000000-0000-0000-0000-000000000000 action=APPROVE dry_run=true
+[17:58:14Z] Fetching post from content_posts...
+[17:58:14Z] Not found in content_posts — trying social_posts...
+[17:58:14Z] ERROR: Post 00000000-0000-0000-0000-000000000000 not found in content_posts or social_posts
+[17:58:19Z] approve-post.sh start — post_id=769c3b54-b9e6-47bc-b5b7-d2d708175280 action=APPROVE dry_run=true
+[17:58:19Z] Fetching post from content_posts...
+[17:58:19Z] Not found in content_posts — trying social_posts...
+[17:58:19Z] Found post in social_posts | platforms: linkedin | status: posted
+[17:58:19Z] Action: APPROVE
+[17:58:19Z] Routing platform: linkedin
+[17:58:19Z] [DRY RUN] Would run: python3 /root/.openclaw/workspace-cestra/scripts/late-post.py 769c3b54-b9e6-47bc-b5b7-d2d708175280
+[17:58:19Z] [DRY RUN] Complete — no changes made
+[17:58:19Z] approve-post.sh complete (exit 0)

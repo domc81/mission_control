@@ -1,0 +1,24 @@
+[18:40:37Z] content-heartbeat.py start
+[18:40:37Z] [WARN] Supabase GET failed (content_posts?status=eq.pending_approval&created_at=lt.2026-03-10T18:10:37.702906+00:00&select=id,content,platforms,platform,created_at): HTTP Error 400: Bad Request
+[18:40:37Z] [WARN] Supabase GET failed (social_posts?status=eq.pending_approval&created_at=lt.2026-03-10T18:10:37.702906+00:00&select=id,content,platforms,platform,created_at): HTTP Error 400: Bad Request
+[18:40:38Z] Scheduled posts in Late: 0
+[18:40:40Z] Recent comments (24h): 7
+[18:40:43Z] Output written to /tmp/content-heartbeat.json
+[18:40:43Z] NEEDS ATTENTION: ['7 new comment(s) in last 24h — may need response']
+[18:41:01Z] content-heartbeat.py start
+[18:41:02Z] [WARN] Supabase GET failed (content_posts?status=eq.pending_approval&created_at=lt.2026-03-10T18:11:01Z&select=id,content,platforms,platform,created_at): HTTP Error 400: Bad Request
+[18:41:02Z] [WARN] Supabase GET failed (social_posts?status=eq.pending_approval&created_at=lt.2026-03-10T18:11:01Z&select=id,content,platforms,platform,created_at): HTTP Error 400: Bad Request
+[18:41:02Z] Scheduled posts in Late: 0
+[18:41:04Z] Recent comments (24h): 7
+[18:41:06Z] Output written to /tmp/content-heartbeat.json
+[18:41:06Z] NEEDS ATTENTION: ['7 new comment(s) in last 24h — may need response']
+[18:41:36Z] content-heartbeat.py start
+[18:41:37Z] Stale approval: 70a453bc (['x']) since 2026-03-09T18:05
+[18:41:37Z] Stale approval: 92e6dfd5 (['x']) since 2026-03-09T18:05
+[18:41:37Z] Stale approval: d0b17be2 (['x']) since 2026-03-09T18:05
+[18:41:37Z] Stale approval: af79f836 (['x']) since 2026-03-09T18:05
+[18:41:37Z] ALERT: 4 stale approvals
+[18:41:37Z] Scheduled posts in Late: 0
+[18:41:39Z] Recent comments (24h): 7
+[18:41:43Z] Output written to /tmp/content-heartbeat.json
+[18:41:43Z] NEEDS ATTENTION: ['4 post(s) waiting approval >30min: 70a453bc, 92e6dfd5, d0b17be2, af79f836', '7 new comment(s) in last 24h — may need response']
