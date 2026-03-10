@@ -3,6 +3,13 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "./convex/api";
 import "./App.css";
 import { GatewayBridge } from "./GatewayBridge";
+import { ContentPipeline, usePendingCount } from "./components/ContentPipeline";
+import { CostTracking } from "./components/CostTracking";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string || "https://api-dc81.dc81.io";
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string || "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3Mjg3MzI4MCwiZXhwIjo0OTI4NTQ2ODgwLCJyb2xlIjoiYW5vbiJ9.0FKP6iMbNe30IkAT9Jwr6vOALB5ExEzo8wIkBlTf95k";
+
+type NavSection = "overview" | "content" | "tasks" | "agents" | "costs" | "docs" | "audit";
 
 type Agent = {
   _id: string;
@@ -575,7 +582,9 @@ function App() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const [uploadTitle, setUploadTitle] = useState("");
+  const [activeNav, setActiveNav] = useState<NavSection>("overview");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingApprovalCount = usePendingCount(SUPABASE_URL, SUPABASE_KEY);
 
   if (!dashboard) {
     return (
@@ -640,235 +649,315 @@ function App() {
     }
   }
 
+  const navItems: { id: NavSection; label: string; emoji: string; badge?: number }[] = [
+    { id: "overview", label: "Overview",  emoji: "🎯" },
+    { id: "content",  label: "Content",   emoji: "📣", badge: pendingApprovalCount },
+    { id: "tasks",    label: "Tasks",     emoji: "📋", badge: (dashboard?.tasks.in_progress ?? 0) + (dashboard?.tasks.review ?? 0) },
+    { id: "agents",   label: "Agents",    emoji: "🤖" },
+    { id: "costs",    label: "Costs",     emoji: "💰" },
+    { id: "docs",     label: "Documents", emoji: "📄" },
+    { id: "audit",    label: "Audit Log", emoji: "🔍" },
+  ];
+
   return (
-    <div className="dashboard">
+    <div className="app-shell">
       {selectedDoc && (
         <DocumentModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
       )}
-      
+
       {selectedTask && (
         <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} onUpdateStatus={({ taskId, status }) => updateTaskStatus({ taskId: taskId as any, status: status as any })} />
       )}
 
-      <header className="dashboard-header">
-        <h1>🎯 Mission Control</h1>
-        <span className="subtitle">DC81 Operations Hub</span>
-      </header>
-
-      {/* Stats Row */}
-      <section className="stats-row">
-        <div className="stat-card">
-          <span className="stat-value">{dashboard.agents.length}</span>
-          <span className="stat-label">Agents</span>
+      {/* Sidebar */}
+      <nav className="sidebar">
+        <div className="sidebar-brand">
+          <span className="sidebar-brand-icon">🎯</span>
+          <span className="sidebar-brand-text">Mission Control</span>
         </div>
-        <div className="stat-card">
-          <span className="stat-value">{dashboard.tasks.total}</span>
-          <span className="stat-label">Total Tasks</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-value">{dashboard.tasks.in_progress}</span>
-          <span className="stat-label">In Progress</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-value">{dashboard.tasks.review}</span>
-          <span className="stat-label">In Review</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-value">{dashboard.tasks.completed}</span>
-          <span className="stat-label">Completed</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-value">{dashboard.unreadNotifications}</span>
-          <span className="stat-label">Notifications</span>
-        </div>
-      </section>
-
-      {/* Agents */}
-      <section className="panel">
-        <h2>Squad Status</h2>
-        <div className="agents-grid">
-          {dashboard.agents.map((agent: Agent) => (
-            <div key={agent._id} className={`agent-card status-${agent.status || "offline"}`}>
-              <div className="agent-emoji">{agent.emoji || "🤖"}</div>
-              <div className="agent-info">
-                <strong>{agent.name}</strong>
-                <span className="agent-role">{agent.role}</span>
-                <span className={`agent-status ${agent.status || "offline"}`}>
-                  {agent.status || "offline"}
-                </span>
-                {agent.capabilities && agent.capabilities.length > 0 && (
-                  <div className="agent-capabilities">
-                    {agent.capabilities.map((c: string) => (
-                      <span key={c} className="capability-badge">{c}</span>
-                    ))}
-                  </div>
-                )}
-                {agent.heartbeatAt && (
-                  <span className="agent-heartbeat">
-                    Last seen: {timeAgo(agent.heartbeatAt)}
+        <ul className="sidebar-nav">
+          {navItems.map(item => (
+            <li key={item.id}>
+              <button
+                className={`sidebar-nav-item ${activeNav === item.id ? "sidebar-nav-item--active" : ""}`}
+                onClick={() => setActiveNav(item.id)}
+              >
+                <span className="sidebar-nav-emoji">{item.emoji}</span>
+                <span className="sidebar-nav-label">{item.label}</span>
+                {item.badge != null && item.badge > 0 && (
+                  <span className={`sidebar-badge ${item.id === "content" ? "sidebar-badge--urgent" : ""}`}>
+                    {item.badge}
                   </span>
                 )}
-              </div>
-            </div>
+              </button>
+            </li>
           ))}
-          {dashboard.agents.length === 0 && (
-            <p className="empty-state">No agents registered yet</p>
-          )}
+        </ul>
+        <div className="sidebar-footer">
+          <span className="sidebar-footer-text">DC81 Ltd</span>
         </div>
-      </section>
+      </nav>
 
-      {/* Gateway — Agent Status Panel */}
-      <GatewayBridge />
+      {/* Main content area */}
+      <div className="main-content">
+        <div className="dashboard">
 
-      {/* Task Board */}
-      <section className="panel">
-        <h2>Task Board</h2>
-        <div className="kanban">
-          {statusOrder.map((status) => {
-            const tasks: Task[] = (taskBoard && taskBoard[status]) || [];
-            return (
-              <div key={status} className="kanban-column">
-                <h3>
-                  {statusLabels[status]} <span className="count">{tasks.length}</span>
-                </h3>
-                {tasks.map((task: Task) => (
-                  <div 
-                    key={task._id} 
-                    className={`task-card priority-${task.priority || "medium"}`}
-                    onClick={() => setSelectedTask(task)}
-                  >
-                    <strong>{task.title}</strong>
-                    {task.description && <p>{task.description}</p>}
-                    {task.assignees && task.assignees.length > 0 && (
-                      <div className="task-assignees">
-                        {task.assignees.map((a: string) => (
-                          <span key={a} className="assignee-badge">{a}</span>
-                        ))}
-                      </div>
-                    )}
-                    {task.priority && (
-                      <span className={`priority-badge priority-${task.priority}`}>
-                        {task.priority}
-                      </span>
-                    )}
-                    <div className="task-actions">
-                      {nextStatus[status] && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateTaskStatus({
-                              taskId: task._id as any,
-                              status: nextStatus[status] as any,
-                            })
-                          }}
+          <header className="dashboard-header">
+            <h1>{navItems.find(n => n.id === activeNav)?.emoji} {navItems.find(n => n.id === activeNav)?.label ?? "Mission Control"}</h1>
+            <span className="subtitle">DC81 Operations Hub</span>
+          </header>
+
+          {/* ── OVERVIEW ── */}
+          {activeNav === "overview" && (
+            <>
+              <section className="stats-row">
+                <div className="stat-card">
+                  <span className="stat-value">{dashboard.agents.length}</span>
+                  <span className="stat-label">Agents</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-value">{dashboard.tasks.total}</span>
+                  <span className="stat-label">Total Tasks</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-value">{dashboard.tasks.in_progress}</span>
+                  <span className="stat-label">In Progress</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-value">{dashboard.tasks.review}</span>
+                  <span className="stat-label">In Review</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-value">{dashboard.tasks.completed}</span>
+                  <span className="stat-label">Completed</span>
+                </div>
+                <div className={`stat-card ${pendingApprovalCount > 0 ? "stat-card--alert" : ""}`}>
+                  <span className="stat-value">{pendingApprovalCount}</span>
+                  <span className="stat-label">Pending Approval</span>
+                </div>
+              </section>
+
+              <section className="panel overview-quicknav">
+                <h2>Quick Access</h2>
+                <div className="quicknav-grid">
+                  {navItems.filter(n => n.id !== "overview").map(item => (
+                    <button
+                      key={item.id}
+                      className="quicknav-card"
+                      onClick={() => setActiveNav(item.id)}
+                    >
+                      <span className="quicknav-emoji">{item.emoji}</span>
+                      <span className="quicknav-label">{item.label}</span>
+                      {item.badge != null && item.badge > 0 && (
+                        <span className={`quicknav-badge ${item.id === "content" ? "quicknav-badge--urgent" : ""}`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="panel">
+                <h2>Activity Feed</h2>
+                <div className="activity-feed">
+                  {activities?.map((activity: Activity) => (
+                    <div key={activity._id} className={`activity-item type-${activity.type}`}>
+                      <span className="activity-type">{activity.type.replace("_", " ")}</span>
+                      <span className="activity-agent">{activity.agentId}</span>
+                      <span className="activity-message">{activity.message}</span>
+                      <span className="activity-time">{timeAgo(activity.timestamp)}</span>
+                    </div>
+                  ))}
+                  {(!activities || activities.length === 0) && (
+                    <p className="empty-state">No activity yet</p>
+                  )}
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ── CONTENT PIPELINE ── */}
+          {activeNav === "content" && (
+            <ContentPipeline supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+          )}
+
+          {/* ── TASKS ── */}
+          {activeNav === "tasks" && (
+            <section className="panel">
+              <h2>Task Board</h2>
+              <div className="kanban">
+                {statusOrder.map((status) => {
+                  const tasks: Task[] = (taskBoard && taskBoard[status]) || [];
+                  return (
+                    <div key={status} className="kanban-column">
+                      <h3>
+                        {statusLabels[status]} <span className="count">{tasks.length}</span>
+                      </h3>
+                      {tasks.map((task: Task) => (
+                        <div
+                          key={task._id}
+                          className={`task-card priority-${task.priority || "medium"}`}
+                          onClick={() => setSelectedTask(task)}
                         >
-                          {nextLabel[status]}
-                        </button>
+                          <strong>{task.title}</strong>
+                          {task.description && <p>{task.description}</p>}
+                          {task.assignees && task.assignees.length > 0 && (
+                            <div className="task-assignees">
+                              {task.assignees.map((a: string) => (
+                                <span key={a} className="assignee-badge">{a}</span>
+                              ))}
+                            </div>
+                          )}
+                          {task.priority && (
+                            <span className={`priority-badge priority-${task.priority}`}>
+                              {task.priority}
+                            </span>
+                          )}
+                          <div className="task-actions">
+                            {nextStatus[status] && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateTaskStatus({
+                                    taskId: task._id as any,
+                                    status: nextStatus[status] as any,
+                                  });
+                                }}
+                              >
+                                {nextLabel[status]}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {tasks.length === 0 && (
+                        <div className="kanban-empty">No tasks</div>
                       )}
                     </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* ── AGENTS ── */}
+          {activeNav === "agents" && (
+            <>
+              <section className="panel">
+                <h2>Squad Status</h2>
+                <div className="agents-grid">
+                  {dashboard.agents.map((agent: Agent) => (
+                    <div key={agent._id} className={`agent-card status-${agent.status || "offline"}`}>
+                      <div className="agent-emoji">{agent.emoji || "🤖"}</div>
+                      <div className="agent-info">
+                        <strong>{agent.name}</strong>
+                        <span className="agent-role">{agent.role}</span>
+                        <span className={`agent-status ${agent.status || "offline"}`}>
+                          {agent.status || "offline"}
+                        </span>
+                        {agent.capabilities && agent.capabilities.length > 0 && (
+                          <div className="agent-capabilities">
+                            {agent.capabilities.map((c: string) => (
+                              <span key={c} className="capability-badge">{c}</span>
+                            ))}
+                          </div>
+                        )}
+                        {agent.heartbeatAt && (
+                          <span className="agent-heartbeat">
+                            Last seen: {timeAgo(agent.heartbeatAt)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {dashboard.agents.length === 0 && (
+                    <p className="empty-state">No agents registered yet</p>
+                  )}
+                </div>
+              </section>
+              <GatewayBridge />
+              <AgentConversationsPanel />
+            </>
+          )}
+
+          {/* ── COSTS ── */}
+          {activeNav === "costs" && (
+            <CostTracking />
+          )}
+
+          {/* ── DOCUMENTS ── */}
+          {activeNav === "docs" && (
+            <section className="panel">
+              <h2>Documents</h2>
+              <form className="doc-upload-form" onSubmit={handleFileUpload}>
+                <input
+                  type="text"
+                  placeholder="Document title"
+                  value={uploadTitle}
+                  onChange={e => setUploadTitle(e.target.value)}
+                  className="doc-upload-title"
+                />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="doc-upload-file"
+                />
+                <button
+                  type="submit"
+                  className="doc-upload-btn"
+                  disabled={uploadState === "uploading"}
+                >
+                  {uploadState === "uploading" ? "Uploading…" : uploadState === "done" ? "✓ Uploaded!" : uploadState === "error" ? "✗ Error" : "Upload File"}
+                </button>
+              </form>
+              <div className="documents-list">
+                {documents?.map((doc: Document) => (
+                  <div
+                    key={doc._id}
+                    className="document-card document-card--clickable"
+                    onClick={() => setSelectedDoc(doc)}
+                  >
+                    <strong>{doc.title}</strong>
+                    <span className="doc-type">{doc.type}</span>
+                    <span className="doc-author">by {doc.authorId}</span>
+                    <span className="doc-time">{timeAgo(doc.createdAt)}</span>
+                    {doc.storageId ? (
+                      <DocumentFileLink storageId={doc.storageId} fileName={doc.fileName} />
+                    ) : (
+                      <span className="doc-open-hint">Click to read →</span>
+                    )}
                   </div>
                 ))}
-                {tasks.length === 0 && (
-                  <div className="kanban-empty">No tasks</div>
+                {(!documents || documents.length === 0) && (
+                  <p className="empty-state">No documents yet</p>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Activity Feed */}
-      <section className="panel">
-        <h2>Activity Feed</h2>
-        <div className="activity-feed">
-          {activities?.map((activity: Activity) => (
-            <div key={activity._id} className={`activity-item type-${activity.type}`}>
-              <span className="activity-type">{activity.type.replace("_", " ")}</span>
-              <span className="activity-agent">{activity.agentId}</span>
-              <span className="activity-message">{activity.message}</span>
-              <span className="activity-time">{timeAgo(activity.timestamp)}</span>
-            </div>
-          ))}
-          {(!activities || activities.length === 0) && (
-            <p className="empty-state">No activity yet</p>
+            </section>
           )}
-        </div>
-      </section>
 
-      {/* Agent Conversations Panel */}
-      <AgentConversationsPanel />
-
-      {/* Two-column: Documents + Audit Log */}
-      <div className="two-column">
-        {/* Documents */}
-        <section className="panel">
-          <h2>Documents</h2>
-
-          {/* File Upload */}
-          <form className="doc-upload-form" onSubmit={handleFileUpload}>
-            <input
-              type="text"
-              placeholder="Document title"
-              value={uploadTitle}
-              onChange={e => setUploadTitle(e.target.value)}
-              className="doc-upload-title"
-            />
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="doc-upload-file"
-            />
-            <button
-              type="submit"
-              className="doc-upload-btn"
-              disabled={uploadState === "uploading"}
-            >
-              {uploadState === "uploading" ? "Uploading…" : uploadState === "done" ? "✓ Uploaded!" : uploadState === "error" ? "✗ Error" : "Upload File"}
-            </button>
-          </form>
-
-          <div className="documents-list">
-            {documents?.map((doc: Document) => (
-              <div
-                key={doc._id}
-                className="document-card document-card--clickable"
-                onClick={() => setSelectedDoc(doc)}
-              >
-                <strong>{doc.title}</strong>
-                <span className="doc-type">{doc.type}</span>
-                <span className="doc-author">by {doc.authorId}</span>
-                <span className="doc-time">{timeAgo(doc.createdAt)}</span>
-                {doc.storageId ? (
-                  <DocumentFileLink storageId={doc.storageId} fileName={doc.fileName} />
-                ) : (
-                  <span className="doc-open-hint">Click to read →</span>
+          {/* ── AUDIT LOG ── */}
+          {activeNav === "audit" && (
+            <section className="panel">
+              <h2>Audit Log</h2>
+              <div className="audit-log">
+                {auditLog?.map((entry: any) => (
+                  <div key={entry._id} className="audit-entry">
+                    <span className="audit-event">{entry.eventType}</span>
+                    <span className="audit-actor">{entry.actorId}</span>
+                    <span className="audit-target">{entry.targetType}{entry.targetId ? `: ${entry.targetId}` : ""}</span>
+                    {entry.details && <span className="audit-details">{entry.details}</span>}
+                    <span className="audit-time">{timeAgo(entry.timestamp)}</span>
+                  </div>
+                ))}
+                {(!auditLog || auditLog.length === 0) && (
+                  <p className="empty-state">No audit entries yet</p>
                 )}
               </div>
-            ))}
-            {(!documents || documents.length === 0) && (
-              <p className="empty-state">No documents yet</p>
-            )}
-          </div>
-        </section>
+            </section>
+          )}
 
-        {/* Audit Log */}
-        <section className="panel">
-          <h2>Audit Log</h2>
-          <div className="audit-log">
-            {auditLog?.map((entry: any) => (
-              <div key={entry._id} className="audit-entry">
-                <span className="audit-event">{entry.eventType}</span>
-                <span className="audit-actor">{entry.actorId}</span>
-                <span className="audit-target">{entry.targetType}{entry.targetId ? `: ${entry.targetId}` : ""}</span>
-                {entry.details && <span className="audit-details">{entry.details}</span>}
-                <span className="audit-time">{timeAgo(entry.timestamp)}</span>
-              </div>
-            ))}
-            {(!auditLog || auditLog.length === 0) && (
-              <p className="empty-state">No audit entries yet</p>
-            )}
-          </div>
-        </section>
+        </div>
       </div>
     </div>
   );

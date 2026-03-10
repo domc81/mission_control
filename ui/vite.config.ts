@@ -19,6 +19,11 @@ export default defineConfig({
         changeOrigin: false,
         rewrite: (p) => p.replace(/^\/ws/, ''),
       },
+      // Dev: proxy /api/costs → proxy-server (cost API)
+      '/api': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+      },
     },
   },
 })

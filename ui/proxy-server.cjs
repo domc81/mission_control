@@ -44,7 +44,20 @@ const gwPort = parseInt(gwUrl.port || '18789', 10);
 
 console.log(`[ws-proxy] Starting on port ${PROXY_PORT} → ${GATEWAY_URL}`);
 
-const server = http.createServer((_req, res) => {
+// ============================================================
+// COST API — added by Architect Task 3 (do not reorder above WS logic)
+// ============================================================
+const { handleCostsRequest } = require('./api-costs.cjs');
+
+const server = http.createServer((req, res) => {
+  const reqPath = url.parse(req.url || '/').pathname;
+
+  // GET /api/costs — per-agent token usage + estimated USD
+  if (reqPath === '/api/costs') {
+    handleCostsRequest(req, res);
+    return;
+  }
+
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('DC81 WS Proxy OK\n');
 });
