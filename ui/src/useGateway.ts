@@ -76,10 +76,16 @@ type PendingRequest = {
 
 // WS connects directly on port 3001, bypassing Traefik (which kills WS connections).
 // HTTP (static files, /api/costs) stays on port 3000 through Traefik as normal.
-const WS_PORT = 3001;
-const WS_PATH =
+// WS_TOKEN is injected at build time via VITE_WS_TOKEN env var.
+const WS_PORT  = 3001;
+const WS_TOKEN = import.meta.env.VITE_WS_TOKEN as string | undefined;
+const WS_PATH  =
   typeof window !== "undefined"
-    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${WS_PORT}/ws`
+    ? (() => {
+        const proto = window.location.protocol === "https:" ? "wss" : "ws";
+        const base  = `${proto}://${window.location.hostname}:${WS_PORT}/ws`;
+        return WS_TOKEN ? `${base}?token=${encodeURIComponent(WS_TOKEN)}` : base;
+      })()
     : `ws://localhost:${WS_PORT}/ws`;
 
 const RECONNECT_BASE_MS   = 3_000;

@@ -53,6 +53,9 @@ const PORT            = parseInt(process.env.PORT    || '3000', 10);
 const WS_PORT         = parseInt(process.env.WS_PORT || '3001', 10);
 const DIST_DIR        = process.env.DIST_DIR         || path.join(__dirname, 'dist');
 const OPENCLAW_CONFIG = process.env.OPENCLAW_CONFIG  || '/root/.openclaw/openclaw.json';
+// WS_TOKEN: shared secret required as ?token= query param on /ws connections.
+// Prevents public access to the WS relay. Works from any IP (mobile-friendly).
+const WS_TOKEN        = process.env.WS_TOKEN         || null;
 
 // Parse gateway address
 const gwUrl  = new url.URL(GATEWAY_URL);
@@ -89,6 +92,7 @@ console.log(`[mission-control] WS port:   ${WS_PORT} (direct, bypasses Traefik)`
 console.log(`[mission-control] Static files: ${DIST_DIR}`);
 console.log(`[mission-control] WS gateway: ${GATEWAY_URL}`);
 console.log(`[mission-control] Gateway password: loaded from config ✓`);
+console.log(`[mission-control] WS token auth: ${WS_TOKEN ? 'enabled ✓' : 'DISABLED — set WS_TOKEN env var'}`);
 
 // ============================================================
 // COST API
@@ -213,13 +217,28 @@ const wsServer = http.createServer((req, res) => {
 // ============================================================
 
 wsServer.on('upgrade', (req, clientSocket, head) => {
-  const reqPath = url.parse(req.url || '/').pathname;
+  const parsed  = url.parse(req.url || '/', true);
+  const reqPath = parsed.pathname;
+  const token   = parsed.query.token;
   console.log(`[ws-relay] Upgrade request: ${reqPath} from ${req.socket.remoteAddress}`);
 
   if (reqPath !== '/ws') {
     clientSocket.write('HTTP/1.1 404 Not Found\r\n\r\n');
     clientSocket.destroy();
     return;
+  }
+
+  // Token auth — reject if WS_TOKEN is set and token doesn't match
+  if (WS_TOKEN) {
+    const provided = typeof token === 'string' ? token : '';
+    const valid = provided.length === WS_TOKEN.length &&
+      crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(WS_TOKEN));
+    if (!valid) {
+      console.warn(`[ws-relay] Rejected — invalid token from ${req.socket.remoteAddress}`);
+      clientSocket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      clientSocket.destroy();
+      return;
+    }
   }
 
   // Open TCP connection to gateway
