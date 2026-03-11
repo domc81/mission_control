@@ -234,27 +234,43 @@ wsServer.on('upgrade', (req, clientSocket, head) => {
   // Simple WS frame parser/builder for text frames (opcode 0x1)
   // Handles unmasked frames from server and masked frames from client
 
-  function buildTextFrame(text) {
+  // Build a masked WS text frame (client→server MUST be masked per RFC 6455)
+  function buildTextFrame(text, masked = false) {
     const payload = Buffer.from(text, 'utf8');
     const len = payload.length;
+    const maskBit = masked ? 0x80 : 0;
     let header;
     if (len < 126) {
       header = Buffer.alloc(2);
       header[0] = 0x81; // FIN + text opcode
-      header[1] = len;
+      header[1] = maskBit | len;
     } else if (len < 65536) {
       header = Buffer.alloc(4);
       header[0] = 0x81;
-      header[1] = 126;
+      header[1] = maskBit | 126;
       header.writeUInt16BE(len, 2);
     } else {
       header = Buffer.alloc(10);
       header[0] = 0x81;
-      header[1] = 127;
+      header[1] = maskBit | 127;
       header.writeBigUInt64BE(BigInt(len), 2);
     }
-    return Buffer.concat([header, payload]);
+    if (!masked) {
+      return Buffer.concat([header, payload]);
+    }
+    // Apply mask
+    const maskKey = crypto.randomBytes(4);
+    const masked_payload = Buffer.alloc(len);
+    for (let i = 0; i < len; i++) {
+      masked_payload[i] = payload[i] ^ maskKey[i % 4];
+    }
+    return Buffer.concat([header, maskKey, masked_payload]);
   }
+
+  // Convenience: masked frame for proxy→gateway (client role)
+  function buildMaskedFrame(text) { return buildTextFrame(text, true); }
+  // Unmasked frame for proxy→browser (server role)
+  function buildServerFrame(text) { return buildTextFrame(text, false); }
 
   // Incrementally parse WS frames from a buffer
   // Returns { frames: [...parsed text strings], remaining: Buffer }
@@ -374,30 +390,37 @@ wsServer.on('upgrade', (req, clientSocket, head) => {
         gwSocket.destroy();
         return;
       }
+      console.log(`[ws-relay] Gateway WS upgrade OK, remaining bytes: ${gwRawBuf.length - headerEnd - 4}`);
       gwUpgraded = true;
       gwRawBuf = gwRawBuf.slice(headerEnd + 4); // remaining after headers
     }
 
     // Parse WS frames
+    console.log(`[ws-relay] Parsing gwRawBuf len=${gwRawBuf.length}`);
     const { frames, remaining } = parseFrames(gwRawBuf);
     gwRawBuf = remaining;
+    console.log(`[ws-relay] Parsed ${frames.length} frames, remaining=${gwRawBuf.length}`);
 
     for (const text of frames) {
       if (text === null) {
         // Gateway closed
+        console.error('[ws-relay] Gateway sent close frame');
         clientSocket.destroy();
         return;
       }
 
+      console.log(`[ws-relay] Frame text (first 100): ${text ? text.substring(0, 100) : 'null'}`);
       let msg;
-      try { msg = JSON.parse(text); } catch { continue; }
+      try { msg = JSON.parse(text); } catch (e) { console.error('[ws-relay] JSON parse error:', e.message, 'text:', text.substring(0,50)); continue; }
 
       if (!authComplete) {
         // ---- Auth phase ----
         if (msg.type === 'event' && msg.event === 'connect.challenge') {
+          console.log('[ws-relay] Got connect.challenge, sending auth...');
           // Respond with connect request including real password — never forwarded to browser
           authReqId = `proxy-auth-${Date.now()}`;
-          const connectFrame = buildTextFrame(JSON.stringify({
+          // MUST be masked — proxy acts as WS client to gateway (RFC 6455)
+          const connectFrame = buildMaskedFrame(JSON.stringify({
             type: 'req',
             id: authReqId,
             method: 'connect',
@@ -499,14 +522,15 @@ wsServer.on('upgrade', (req, clientSocket, head) => {
       browserBuffer.push(chunk);
       return;
     }
-    // Post-auth: forward browser frames directly to gateway
-    // Browser sends masked frames; gateway expects them unmasked — unmask here
+    // Post-auth: forward browser frames to gateway.
+    // Browser sends masked frames (RFC 6455 client→server).
+    // parseFrames() unmasks them. We re-mask for our proxy→gateway hop.
     browserBuf = Buffer.concat([browserBuf, chunk]);
     const { frames, remaining } = parseFrames(browserBuf);
     browserBuf = remaining;
     for (const text of frames) {
       if (text === null) { gwSocket.end(); return; }
-      gwSocket.write(buildTextFrame(text));
+      gwSocket.write(buildMaskedFrame(text)); // proxy is client to gateway → must mask
     }
   });
 
