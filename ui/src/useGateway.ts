@@ -13,18 +13,12 @@
  *   Frame format:    {type:"req"|"res"|"event", id?, method?, params?, ok?, payload?, error?}
  *   NOT JSON-RPC — the gateway uses OpenClaw's own framing.
  *
- *   Handshake:
- *   1. Server sends event: {type:"event", event:"connect.challenge", payload:{nonce,ts}}
- *   2. Client sends req:   {type:"req", id:"...", method:"connect", params:{
- *        minProtocol:3, maxProtocol:3,
- *        client:{id:"cli", version:"1.0.0", platform:"web", mode:"cli"},
- *        role:"operator",
- *        scopes:["operator.read","operator.write"],
- *        caps:[], commands:[], permissions:{},
- *        auth:{password:"#SpartacuS81!"},
- *        locale:"en-US", userAgent:"dc81-mission-control/1.0.0"
- *      }}
- *   3. Server responds:    {type:"res", id:"...", ok:true, payload:{type:"hello-ok", protocol:3, ...}}
+ *   Handshake (via proxy — browser never handles credentials):
+ *   1. Browser connects to /ws on proxy-server
+ *   2. Proxy handles gateway challenge + auth internally using password from openclaw.json
+ *   3. Proxy forwards a synthetic hello-ok to the browser once authenticated
+ *   4. Browser sees: {type:"res", id, ok:true, payload:{type:"hello-ok", ...}}
+ *   5. All subsequent frames are piped transparently
  *
  *   Subsequent RPCs: {type:"req", id, method, params} → {type:"res", id, ok, payload|error}
  *
@@ -205,55 +199,29 @@ export function useGateway(): GatewayState {
 
         // ---- OpenClaw gateway events ----
 
-        // Step 1: Server sends connect.challenge — respond with connect request
+        // connect.challenge is handled server-side by the proxy.
+        // The browser should never receive this — but swallow it if it does.
         if (msgType === "event" && msgEvent === "connect.challenge") {
-          const connectId = nextId();
-          sendFrame(ws, {
-            type: "req",
-            id: connectId,
-            method: "connect",
-            params: {
-              minProtocol: 3,
-              maxProtocol: 3,
-              client: {
-                id: "cli",
-                version: "1.0.0",
-                platform: "web",
-                mode: "cli",
-              },
-              role: "operator",
-              scopes: ["operator.read", "operator.write"],
-              caps: [],
-              commands: [],
-              permissions: {},
-              auth: { password: "#SpartacuS81!" },
-              locale: "en-US",
-              userAgent: "dc81-mission-control/1.0.0",
-            },
-          });
-          // Register the connect request so its response is handled as auth confirmation
-          pendingRef.current.set(connectId, {
-            resolve: (payload) => {
-              // hello-ok received — authenticated
-              const p = payload as { type?: string; protocol?: number };
-              if (p?.type === "hello-ok") {
-                reconnectCount.current = 0;
-                setState(prev => ({ ...prev, authenticated: true }));
-                fetchData(ws);
-                if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
-                refreshTimerRef.current = setInterval(() => fetchData(ws), REFRESH_INTERVAL_MS);
-              } else {
-                setState(prev => ({ ...prev, error: "Gateway auth failed" }));
-              }
-            },
-            reject: (err) => {
-              setState(prev => ({ ...prev, error: `Auth failed: ${err}` }));
-            },
-            timeout: setTimeout(() => {
-              pendingRef.current.delete(connectId);
-              setState(prev => ({ ...prev, error: "Auth timeout" }));
-            }, REQUEST_TIMEOUT_MS),
-          });
+          return;
+        }
+
+        // connect.error — proxy failed to auth with gateway
+        if (msgType === "event" && msgEvent === "connect.error") {
+          const payload = msg.payload as { message?: string } | undefined;
+          setState(prev => ({
+            ...prev,
+            error: payload?.message ?? "Gateway authentication failed",
+          }));
+          return;
+        }
+
+        // gateway.ready — proxy has authenticated with gateway on our behalf
+        if (msgType === "event" && msgEvent === "gateway.ready") {
+          reconnectCount.current = 0;
+          setState(prev => ({ ...prev, authenticated: true, error: null }));
+          fetchData(ws);
+          if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
+          refreshTimerRef.current = setInterval(() => fetchData(ws), REFRESH_INTERVAL_MS);
           return;
         }
 
