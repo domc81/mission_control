@@ -390,16 +390,13 @@ wsServer.on('upgrade', (req, clientSocket, head) => {
         gwSocket.destroy();
         return;
       }
-      console.log(`[ws-relay] Gateway WS upgrade OK, remaining bytes: ${gwRawBuf.length - headerEnd - 4}`);
-      gwUpgraded = true;
+        gwUpgraded = true;
       gwRawBuf = gwRawBuf.slice(headerEnd + 4); // remaining after headers
     }
 
     // Parse WS frames
-    console.log(`[ws-relay] Parsing gwRawBuf len=${gwRawBuf.length}`);
     const { frames, remaining } = parseFrames(gwRawBuf);
     gwRawBuf = remaining;
-    console.log(`[ws-relay] Parsed ${frames.length} frames, remaining=${gwRawBuf.length}`);
 
     for (const text of frames) {
       if (text === null) {
@@ -409,14 +406,12 @@ wsServer.on('upgrade', (req, clientSocket, head) => {
         return;
       }
 
-      console.log(`[ws-relay] Frame text (first 100): ${text ? text.substring(0, 100) : 'null'}`);
       let msg;
-      try { msg = JSON.parse(text); } catch (e) { console.error('[ws-relay] JSON parse error:', e.message, 'text:', text.substring(0,50)); continue; }
+      try { msg = JSON.parse(text); } catch (e) { console.error('[ws-relay] JSON parse error:', e.message); continue; }
 
       if (!authComplete) {
         // ---- Auth phase ----
         if (msg.type === 'event' && msg.event === 'connect.challenge') {
-          console.log('[ws-relay] Got connect.challenge, sending auth...');
           // Respond with connect request including real password — never forwarded to browser
           authReqId = `proxy-auth-${Date.now()}`;
           // MUST be masked — proxy acts as WS client to gateway (RFC 6455)
