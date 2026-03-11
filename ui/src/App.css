@@ -403,6 +403,12 @@ body {
   font-size: 0.8rem;
   color: var(--text-secondary);
   margin-bottom: 0.5rem;
+  /* Truncate to 3 lines — full text shown in task detail panel */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-clamp: 3;
 }
 
 .task-assignees {
@@ -471,12 +477,13 @@ body {
 
 .activity-item {
   display: grid;
-  grid-template-columns: 120px 80px 1fr auto;
-  gap: 0.8rem;
+  grid-template-columns: 110px 70px minmax(0, 1fr) 70px;
+  gap: 0.6rem;
   padding: 0.6rem 0;
   border-bottom: 1px solid rgba(38, 41, 55, 0.6);
   align-items: center;
   font-size: 0.85rem;
+  min-width: 0;
 }
 
 .activity-item:last-child {
@@ -531,10 +538,17 @@ body {
   color: var(--neon-cyan);
   font-weight: 500;
   letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .activity-message {
   color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .activity-time {
@@ -2521,4 +2535,49 @@ body {
   color: var(--danger);
   font-size: 0.82rem;
   padding: 8px 0;
+}
+
+/* Subscription agent rows */
+.ct-agent-row--subscription {
+  opacity: 0.8;
+}
+
+.ct-sub-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-muted);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 40px;
+}
+
+.ct-sub-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: rgba(255, 165, 0, 0.25);
+}
+
+.ct-sub-label {
+  color: #ff9800 !important;
+  font-size: 0.65rem !important;
+  font-weight: 500 !important;
+}
+
+.ct-sub-section-title {
+  color: #ff9800;
+}
+
+.ct-sub-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+  font-style: italic;
+}
+
+.ct-total-card--sub {
+  border-color: rgba(255, 165, 0, 0.3) !important;
+}
+
+.ct-total-card--sub .ct-total-value {
+  color: #ff9800 !important;
 }

@@ -4,12 +4,14 @@
  * Per-agent, per-model cost breakdown panel.
  * Fetches from GET /api/costs (served by proxy-server.cjs / api-costs.cjs).
  *
- * Cost data comes from /root/.openclaw/agents/{agent}/sessions/sessions.json
- * Fields used: model, totalTokens, inputTokens, outputTokens
+ * Billing model:
+ *   Anthropic/Claude agents (Cestra, Architect) → Anthropic Max subscription.
+ *   No per-token cost. Shows token counts + "Subscription" note.
  *
- * Pricing (OpenRouter defaults, mid-2025):
- *   Costs are estimated — exact rates vary. The API endpoint calculates
- *   using known per-million-token rates for each model.
+ *   OpenRouter agents (Koda, Kyra, Veda, Vision, Orin, Loki, Fin) →
+ *   real per-token costs. Estimated from known rates.
+ *
+ *   Total cost = OpenRouter spend only.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -19,20 +21,23 @@ import { useState, useEffect, useCallback } from "react";
 // ---------------------------------------------------------------------------
 
 export type AgentCost = {
-  agent:         string;
-  model:         string | null;
-  totalTokens:   number;
-  inputTokens:   number;
-  outputTokens:  number;
-  estimatedUsd:  number;
-  sessionCount:  number;
+  agent:          string;
+  model:          string | null;
+  totalTokens:    number;
+  inputTokens:    number;
+  outputTokens:   number;
+  estimatedUsd:   number;
+  sessionCount:   number;
+  isSubscription: boolean;
 };
 
 export type CostSummary = {
-  agents:         AgentCost[];
-  totalUsd:       number;
-  totalTokens:    number;
-  generatedAt:    number;
+  agents:             AgentCost[];
+  openrouterAgents:   AgentCost[];
+  subscriptionAgents: AgentCost[];
+  totalUsd:           number;   // OpenRouter spend only
+  totalTokens:        number;
+  generatedAt:        number;
 };
 
 // ---------------------------------------------------------------------------
@@ -47,8 +52,18 @@ function useCosts() {
   const fetch_ = useCallback(async () => {
     try {
       const res = await fetch("/api/costs");
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await res.text();
+        throw new Error(`Expected JSON but got: ${text.substring(0, 100)}`);
+      }
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const json: CostSummary = await res.json();
+      // Backfill openrouterAgents / subscriptionAgents if old API format
+      if (!json.openrouterAgents) {
+        json.openrouterAgents   = json.agents.filter(a => !a.isSubscription);
+        json.subscriptionAgents = json.agents.filter(a => a.isSubscription);
+      }
       setData(json);
       setError(null);
     } catch (e) {
@@ -72,12 +87,12 @@ function useCosts() {
 // ---------------------------------------------------------------------------
 
 const MODEL_EMOJI: Record<string, string> = {
-  "claude":  "🟠",
-  "gemini":  "🔵",
-  "gpt":     "🟢",
-  "grok":    "⚡",
-  "minimax": "🟣",
-  "default": "⬜",
+  "claude":   "🟠",
+  "gemini":   "🔵",
+  "gpt":      "🟢",
+  "grok":     "⚡",
+  "minimax":  "🟣",
+  "default":  "⬜",
 };
 
 function modelEmoji(model: string | null): string {
@@ -95,8 +110,8 @@ function modelShort(model: string | null): string {
 }
 
 function formatUsd(usd: number): string {
-  if (usd === 0)    return "$0.000";
-  if (usd < 0.001)  return "<$0.001";
+  if (usd === 0)   return "$0.000";
+  if (usd < 0.001) return "<$0.001";
   return `$${usd.toFixed(3)}`;
 }
 
@@ -142,6 +157,48 @@ function CostBar({ value, max, color }: { value: number; max: number; color: str
 }
 
 // ---------------------------------------------------------------------------
+// Agent row — OpenRouter (has cost)
+// ---------------------------------------------------------------------------
+function OpenRouterAgentRow({ agent, maxCost }: { agent: AgentCost; maxCost: number }) {
+  return (
+    <div className="ct-agent-row">
+      <div className="ct-agent-info">
+        <span className="ct-agent-emoji">{agentEmoji(agent.agent)}</span>
+        <span className="ct-agent-name">{agent.agent}</span>
+        <span className="ct-agent-model">{modelEmoji(agent.model)} {modelShort(agent.model)}</span>
+      </div>
+      <CostBar value={agent.estimatedUsd} max={maxCost} color="var(--neon-magenta)" />
+      <div className="ct-agent-nums">
+        <span className="ct-agent-tokens">{formatTokens(agent.totalTokens)}</span>
+        <span className="ct-agent-cost">{formatUsd(agent.estimatedUsd)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Agent row — Subscription (no cost, show tokens only)
+// ---------------------------------------------------------------------------
+function SubscriptionAgentRow({ agent }: { agent: AgentCost }) {
+  return (
+    <div className="ct-agent-row ct-agent-row--subscription">
+      <div className="ct-agent-info">
+        <span className="ct-agent-emoji">{agentEmoji(agent.agent)}</span>
+        <span className="ct-agent-name">{agent.agent}</span>
+        <span className="ct-agent-model">{modelEmoji(agent.model)} {modelShort(agent.model)}</span>
+      </div>
+      <div className="ct-sub-bar">
+        <div className="ct-sub-fill" style={{ width: "100%" }} />
+      </div>
+      <div className="ct-agent-nums">
+        <span className="ct-agent-tokens">{formatTokens(agent.totalTokens)}</span>
+        <span className="ct-agent-cost ct-sub-label">Subscription</span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -149,19 +206,21 @@ export function CostTracking() {
   const { data, loading, error, refresh } = useCosts();
   const [sortBy, setSortBy] = useState<"cost" | "tokens" | "agent">("cost");
 
-  const sorted = data
-    ? [...data.agents].sort((a, b) => {
+  const openrouter = data
+    ? [...(data.openrouterAgents ?? [])].sort((a, b) => {
         if (sortBy === "cost")   return b.estimatedUsd - a.estimatedUsd;
         if (sortBy === "tokens") return b.totalTokens  - a.totalTokens;
         return a.agent.localeCompare(b.agent);
       })
     : [];
 
-  const maxCost = sorted.reduce((m, a) => Math.max(m, a.estimatedUsd), 0);
+  const subscription = data?.subscriptionAgents ?? [];
 
-  // Group by model for summary
+  const maxCost = openrouter.reduce((m, a) => Math.max(m, a.estimatedUsd), 0);
+
+  // Group OpenRouter agents by model for summary
   const byModel: Record<string, { tokens: number; usd: number; count: number }> = {};
-  data?.agents.forEach(a => {
+  openrouter.forEach(a => {
     const key = a.model ?? "unknown";
     if (!byModel[key]) byModel[key] = { tokens: 0, usd: 0, count: 0 };
     byModel[key].tokens += a.totalTokens;
@@ -185,72 +244,84 @@ export function CostTracking() {
           <div className="ct-totals">
             <div className="ct-total-card">
               <span className="ct-total-value">{formatUsd(data.totalUsd)}</span>
-              <span className="ct-total-label">Est. Total Spend</span>
+              <span className="ct-total-label">OpenRouter Spend</span>
             </div>
             <div className="ct-total-card">
               <span className="ct-total-value">{formatTokens(data.totalTokens)}</span>
               <span className="ct-total-label">Total Tokens</span>
             </div>
-            <div className="ct-total-card">
-              <span className="ct-total-value">{data.agents.length}</span>
-              <span className="ct-total-label">Agents</span>
+            <div className="ct-total-card ct-total-card--sub">
+              <span className="ct-total-value">{subscription.length}</span>
+              <span className="ct-total-label">Subscription Agents</span>
             </div>
           </div>
 
-          {/* Model breakdown */}
-          <div className="ct-models">
-            <h4 className="ct-section-title">By Model</h4>
-            <div className="ct-model-list">
-              {Object.entries(byModel)
-                .sort(([, a], [, b]) => b.usd - a.usd)
-                .map(([model, stats]) => (
-                  <div key={model} className="ct-model-row">
-                    <span className="ct-model-emoji">{modelEmoji(model)}</span>
-                    <span className="ct-model-name">{modelShort(model)}</span>
-                    <span className="ct-model-tokens">{formatTokens(stats.tokens)}</span>
-                    <span className="ct-model-cost">{formatUsd(stats.usd)}</span>
-                  </div>
-                ))}
+          {/* OpenRouter model breakdown */}
+          {Object.keys(byModel).length > 0 && (
+            <div className="ct-models">
+              <h4 className="ct-section-title">OpenRouter — By Model</h4>
+              <div className="ct-model-list">
+                {Object.entries(byModel)
+                  .sort(([, a], [, b]) => b.usd - a.usd)
+                  .map(([model, stats]) => (
+                    <div key={model} className="ct-model-row">
+                      <span className="ct-model-emoji">{modelEmoji(model)}</span>
+                      <span className="ct-model-name">{modelShort(model)}</span>
+                      <span className="ct-model-tokens">{formatTokens(stats.tokens)}</span>
+                      <span className="ct-model-cost">{formatUsd(stats.usd)}</span>
+                    </div>
+                  ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Per-agent breakdown */}
-          <div className="ct-agents">
-            <div className="ct-agents-header">
-              <h4 className="ct-section-title">By Agent</h4>
-              <div className="ct-sort-btns">
-                {(["cost", "tokens", "agent"] as const).map(s => (
-                  <button
-                    key={s}
-                    className={`ct-sort-btn ${sortBy === s ? "ct-sort-btn--active" : ""}`}
-                    onClick={() => setSortBy(s)}
-                  >
-                    {s}
-                  </button>
+          {/* OpenRouter agents */}
+          {openrouter.length > 0 && (
+            <div className="ct-agents">
+              <div className="ct-agents-header">
+                <h4 className="ct-section-title">OpenRouter Agents</h4>
+                <div className="ct-sort-btns">
+                  {(["cost", "tokens", "agent"] as const).map(s => (
+                    <button
+                      key={s}
+                      className={`ct-sort-btn ${sortBy === s ? "ct-sort-btn--active" : ""}`}
+                      onClick={() => setSortBy(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ct-agent-list">
+                {openrouter.map(agent => (
+                  <OpenRouterAgentRow key={agent.agent} agent={agent} maxCost={maxCost} />
                 ))}
               </div>
             </div>
+          )}
 
-            <div className="ct-agent-list">
-              {sorted.map(agent => (
-                <div key={agent.agent} className="ct-agent-row">
-                  <div className="ct-agent-info">
-                    <span className="ct-agent-emoji">{agentEmoji(agent.agent)}</span>
-                    <span className="ct-agent-name">{agent.agent}</span>
-                    <span className="ct-agent-model">{modelEmoji(agent.model)} {modelShort(agent.model)}</span>
-                  </div>
-                  <CostBar value={agent.estimatedUsd} max={maxCost} color="var(--neon-magenta)" />
-                  <div className="ct-agent-nums">
-                    <span className="ct-agent-tokens">{formatTokens(agent.totalTokens)}</span>
-                    <span className="ct-agent-cost">{formatUsd(agent.estimatedUsd)}</span>
-                  </div>
-                </div>
-              ))}
+          {/* Subscription agents */}
+          {subscription.length > 0 && (
+            <div className="ct-agents">
+              <h4 className="ct-section-title ct-sub-section-title">
+                🟠 Anthropic Max — Subscription
+              </h4>
+              <p className="ct-sub-note">
+                Cestra and Architect run on Dominic's Anthropic Max plan.
+                Token usage tracked below — no per-token cost.
+              </p>
+              <div className="ct-agent-list">
+                {subscription.map(agent => (
+                  <SubscriptionAgentRow key={agent.agent} agent={agent} />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <p className="ct-disclaimer">
-            * Estimated costs based on known per-token rates. Actual billing may differ.
+            * OpenRouter costs estimated from known per-token rates. Actual billing may differ.
+            Claude agents (Cestra, Architect) use Anthropic Max subscription — not billed per token.
           </p>
         </>
       )}

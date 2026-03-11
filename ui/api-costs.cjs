@@ -4,23 +4,31 @@
  * GET /api/costs — reads sessions.json files for all agents and returns
  * per-agent token usage + estimated USD cost.
  *
- * Called from proxy-server.cjs. Exported as a function that receives
- * the http.IncomingMessage (req) and http.ServerResponse (res).
+ * AGENT BILLING MODEL:
+ *   Anthropic/Claude agents (Cestra, Architect) → Dominic's Anthropic Max
+ *   subscription. No per-token cost. Show token counts only with note.
+ *
+ *   OpenRouter agents (Koda, Kyra, Veda, Vision, Orin, Loki, Fin) → real
+ *   per-token costs apply. Estimated from known rates.
  *
  * Token pricing (OpenRouter mid-2025, per 1M tokens):
- *   claude-sonnet-4*     input $3.00 / output $15.00
- *   claude-*haiku*       input $0.25 / output $1.25
+ *   claude-sonnet-4*     Anthropic Max — subscription only
+ *   claude-*haiku*       Anthropic Max — subscription only
+ *   claude-*             Anthropic Max — subscription only
  *   gemini-2.5-flash*    input $0.15 / output $0.60
- *   gpt-4o               input $2.50 / output $10.00
+ *   gemini*              input $0.35 / output $1.05
  *   gpt-4o-mini          input $0.15 / output $0.60
- *   grok-*               input $5.00 / output $15.00
- *   minimax-*            input $0.30 / output $0.30
+ *   gpt-4o               input $2.50 / output $10.00
+ *   grok-code-fast*      input $5.00 / output $15.00
+ *   grok*                input $5.00 / output $15.00
+ *   minimax*             input $0.30 / output $0.30
  *   default (unknown)    input $1.00 / output $3.00
  *
- * Note: `totalTokens` in sessions.json is the cumulative lifetime total.
- * `inputTokens`/`outputTokens` reflect only the LAST run's delta.
- * We use totalTokens as a reasonable proxy for lifetime usage, split
- * proportionally by last-known input:output ratio.
+ * Agents on Anthropic Max subscription (no cost to track):
+ *   cestra, architect
+ *
+ * Agents on OpenRouter (real cost):
+ *   koda, kyra, veda, vision, orin, loki, fin
  */
 
 'use strict';
@@ -31,36 +39,44 @@ const path = require('path');
 const AGENTS_DIR = process.env.AGENTS_DIR || '/root/.openclaw/agents';
 
 // ---------------------------------------------------------------------------
-// Pricing table — per million tokens [input, output]
+// Agents on Anthropic Max subscription (no per-token billing)
 // ---------------------------------------------------------------------------
+const ANTHROPIC_MAX_AGENTS = new Set(['cestra', 'architect']);
 
+// ---------------------------------------------------------------------------
+// Pricing table — per million tokens [input, output]
+// Only used for OpenRouter agents.
+// ---------------------------------------------------------------------------
 const PRICING = [
-  { pattern: /claude-sonnet/i,          rates: [3.00,  15.00] },
-  { pattern: /claude-opus/i,            rates: [15.00, 75.00] },
-  { pattern: /claude.*haiku/i,          rates: [0.25,  1.25]  },
-  { pattern: /claude/i,                 rates: [3.00,  15.00] },
-  { pattern: /gemini-2\.5-flash/i,      rates: [0.15,  0.60]  },
-  { pattern: /gemini/i,                 rates: [0.35,  1.05]  },
-  { pattern: /gpt-4o-mini/i,            rates: [0.15,  0.60]  },
-  { pattern: /gpt-4o/i,                 rates: [2.50,  10.00] },
-  { pattern: /gpt/i,                    rates: [1.00,  3.00]  },
-  { pattern: /grok-code-fast/i,         rates: [5.00,  15.00] },
-  { pattern: /grok/i,                   rates: [5.00,  15.00] },
-  { pattern: /minimax/i,                rates: [0.30,  0.30]  },
+  { pattern: /claude/i,                 rates: [0, 0],   subscription: true  },
+  { pattern: /anthropic/i,              rates: [0, 0],   subscription: true  },
+  { pattern: /gemini-2\.5-flash/i,      rates: [0.15, 0.60]  },
+  { pattern: /gemini/i,                 rates: [0.35, 1.05]  },
+  { pattern: /gpt-4o-mini/i,            rates: [0.15, 0.60]  },
+  { pattern: /gpt-4o/i,                 rates: [2.50, 10.00] },
+  { pattern: /gpt/i,                    rates: [1.00, 3.00]  },
+  { pattern: /grok-code-fast/i,         rates: [5.00, 15.00] },
+  { pattern: /grok/i,                   rates: [5.00, 15.00] },
+  { pattern: /minimax/i,                rates: [0.30, 0.30]  },
 ];
 
 const DEFAULT_RATES = [1.00, 3.00];
 
 function getRates(model) {
-  if (!model) return DEFAULT_RATES;
-  for (const { pattern, rates } of PRICING) {
-    if (pattern.test(model)) return rates;
+  if (!model) return { rates: DEFAULT_RATES, subscription: false };
+  for (const entry of PRICING) {
+    if (entry.pattern.test(model)) {
+      return { rates: entry.rates, subscription: !!entry.subscription };
+    }
   }
-  return DEFAULT_RATES;
+  return { rates: DEFAULT_RATES, subscription: false };
 }
 
-function estimateUsd(model, inputTok, outputTok) {
-  const [inputRate, outputRate] = getRates(model);
+function estimateUsd(model, inputTok, outputTok, isSubscriptionAgent) {
+  if (isSubscriptionAgent) return 0;
+  const { rates, subscription } = getRates(model);
+  if (subscription) return 0;
+  const [inputRate, outputRate] = rates;
   return (inputTok / 1_000_000) * inputRate +
          (outputTok / 1_000_000) * outputRate;
 }
@@ -91,7 +107,14 @@ function computeCosts() {
       return stat.isDirectory();
     });
   } catch {
-    return { agents: [], totalUsd: 0, totalTokens: 0, generatedAt: Date.now() };
+    return {
+      agents: [],
+      openrouterAgents: [],
+      subscriptionAgents: [],
+      totalUsd: 0,
+      totalTokens: 0,
+      generatedAt: Date.now(),
+    };
   }
 
   const results = [];
@@ -100,8 +123,8 @@ function computeCosts() {
     const sessions = readAgentSessions(agentName);
     if (!sessions) continue;
 
-    // Find the "main" session (agentName:main pattern) for model info
-    // Fall back to any session with a model set
+    const isSubscription = ANTHROPIC_MAX_AGENTS.has(agentName.toLowerCase());
+
     let primaryModel = null;
     let totalTokens  = 0;
     let totalInput   = 0;
@@ -111,7 +134,6 @@ function computeCosts() {
     for (const [sessionKey, session] of Object.entries(sessions)) {
       if (!session || typeof session !== 'object') continue;
 
-      // Prefer main session for model
       if (!primaryModel && session.model) {
         primaryModel = session.model;
       }
@@ -131,13 +153,11 @@ function computeCosts() {
 
     if (totalTokens === 0 && totalInput === 0 && totalOutput === 0) continue;
 
-    // Estimate USD:
-    // totalTokens is lifetime cumulative — split proportionally by last-known i/o ratio
+    // Estimate token split
     let inputEst  = totalInput;
     let outputEst = totalOutput;
 
     if (totalTokens > (totalInput + totalOutput)) {
-      // totalTokens is larger (cumulative); use it with a 3:1 input:output ratio as fallback
       const ratio = (totalInput + totalOutput) > 0
         ? totalInput / (totalInput + totalOutput)
         : 0.75;
@@ -145,7 +165,9 @@ function computeCosts() {
       outputEst = totalTokens - inputEst;
     }
 
-    const estimatedUsd = estimateUsd(primaryModel, inputEst, outputEst);
+    const estimatedUsd = isSubscription
+      ? 0
+      : estimateUsd(primaryModel, inputEst, outputEst, false);
 
     results.push({
       agent:        agentName,
@@ -155,17 +177,25 @@ function computeCosts() {
       outputTokens: outputEst,
       estimatedUsd,
       sessionCount,
+      isSubscription,
     });
   }
 
-  const totalUsd    = results.reduce((s, a) => s + a.estimatedUsd, 0);
-  const totalTok    = results.reduce((s, a) => s + a.totalTokens,  0);
+  // Split into subscription vs OpenRouter for display
+  const subscriptionAgents = results.filter(a => a.isSubscription);
+  const openrouterAgents   = results.filter(a => !a.isSubscription);
+
+  // Total cost = OpenRouter spend ONLY
+  const totalUsd  = openrouterAgents.reduce((s, a) => s + a.estimatedUsd, 0);
+  const totalTok  = results.reduce((s, a) => s + a.totalTokens,  0);
 
   return {
-    agents:       results,
-    totalUsd,
-    totalTokens:  totalTok,
-    generatedAt:  Date.now(),
+    agents:             results,          // all agents (for backwards compat)
+    openrouterAgents,
+    subscriptionAgents,
+    totalUsd,                             // OpenRouter spend only
+    totalTokens:        totalTok,
+    generatedAt:        Date.now(),
   };
 }
 
@@ -174,7 +204,6 @@ function computeCosts() {
 // ---------------------------------------------------------------------------
 
 function handleCostsRequest(req, res) {
-  // CORS for dev
   res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
