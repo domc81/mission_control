@@ -22,6 +22,8 @@ COPY proxy-server.cjs ./proxy-server.cjs
 COPY api-costs.cjs ./api-costs.cjs
 
 EXPOSE 3000
+EXPOSE 3001
 
-# Single server handles everything: static files, /ws proxy, /api/costs
+# Port 3000: HTTP (static files + /api/costs) — through Traefik
+# Port 3001: WebSocket relay (direct, bypasses Traefik)
 CMD ["node", "proxy-server.cjs"]

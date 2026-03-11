@@ -1,29 +1,35 @@
 /**
  * proxy-server.cjs
  *
- * Combined production server for DC81 Mission Control.
- * Runs on a SINGLE port (default 3000) and handles:
+ * Two-server production setup for DC81 Mission Control:
  *
- *   GET /api/costs   — per-agent token usage + estimated USD
- *   /ws              — Authenticated WebSocket relay → OpenClaw Gateway
- *   /*               — Static file serving from ./dist
+ *   Port 3000 (HTTP, via Traefik):
+ *     GET /api/costs   — per-agent token usage + estimated USD
+ *     /*               — Static file serving from ./dist
+ *
+ *   Port 3001 (WS, direct — bypasses Traefik entirely):
+ *     /ws              — Authenticated WebSocket relay → OpenClaw Gateway
+ *
+ * WHY TWO PORTS: Traefik kills WebSocket connections before auth completes
+ * (clean FIN after forwarding the 101). Exposing port 3001 directly from
+ * the container bypasses Traefik for WS traffic. HTTP stays on 3000.
  *
  * SECURITY: The gateway password is read from openclaw.json at startup.
  * It is NEVER sent to the browser. The proxy handles the gateway auth
  * handshake itself (challenge → connect → hello-ok), then forwards a
- * synthetic hello-ok to the browser. All subsequent frames are piped
- * transparently. The browser only ever sees post-auth gateway traffic.
+ * synthetic gateway.ready event to the browser.
  *
  * WebSocket relay architecture:
- *   Browser ──/ws──► Proxy (this server) ──► OpenClaw Gateway (loopback)
- *                    └── handles auth handshake internally ──┘
+ *   Browser ──:3001/ws──► Proxy (wsServer) ──► OpenClaw Gateway (loopback)
+ *                         └── handles auth handshake internally ──┘
  *
  * Password source: /root/.openclaw/openclaw.json → gateway.auth.password
  * Fallback: GATEWAY_PASSWORD env var
  *
  * Environment variables:
  *   GATEWAY_URL      — target gateway WS URL (default: ws://127.0.0.1:18789)
- *   PORT             — port this server listens on (default: 3000)
+ *   PORT             — HTTP port (default: 3000)
+ *   WS_PORT          — WebSocket port (default: 3001)
  *   DIST_DIR         — path to built static files (default: ./dist)
  *   OPENCLAW_CONFIG  — path to openclaw.json (default: /root/.openclaw/openclaw.json)
  */
@@ -44,6 +50,7 @@ const crypto  = require('crypto');
 
 const GATEWAY_URL     = process.env.GATEWAY_URL     || 'ws://127.0.0.1:18789';
 const PORT            = parseInt(process.env.PORT    || '3000', 10);
+const WS_PORT         = parseInt(process.env.WS_PORT || '3001', 10);
 const DIST_DIR        = process.env.DIST_DIR         || path.join(__dirname, 'dist');
 const OPENCLAW_CONFIG = process.env.OPENCLAW_CONFIG  || '/root/.openclaw/openclaw.json';
 
@@ -77,7 +84,8 @@ function readGatewayPassword() {
 }
 
 const GATEWAY_PASSWORD = readGatewayPassword();
-console.log(`[mission-control] Starting on port ${PORT}`);
+console.log(`[mission-control] HTTP port: ${PORT} (static + /api/costs)`);
+console.log(`[mission-control] WS port:   ${WS_PORT} (direct, bypasses Traefik)`);
 console.log(`[mission-control] Static files: ${DIST_DIR}`);
 console.log(`[mission-control] WS gateway: ${GATEWAY_URL}`);
 console.log(`[mission-control] Gateway password: loaded from config ✓`);
@@ -161,7 +169,7 @@ function serveStatic(req, res) {
 }
 
 // ============================================================
-// HTTP server
+// HTTP server (port 3000 — static files + /api/costs)
 // ============================================================
 const server = http.createServer((req, res) => {
   const reqPath = url.parse(req.url || '/').pathname || '/';
@@ -178,13 +186,15 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (reqPath === '/ws') {
-    res.writeHead(426, { 'Content-Type': 'text/plain', 'Connection': 'Upgrade', 'Upgrade': 'websocket' });
-    res.end('WebSocket upgrade required');
-    return;
-  }
-
   serveStatic(req, res);
+});
+
+// ============================================================
+// WebSocket server (port 3001 — direct, bypasses Traefik)
+// ============================================================
+const wsServer = http.createServer((req, res) => {
+  res.writeHead(426, { 'Content-Type': 'text/plain', 'Connection': 'Upgrade', 'Upgrade': 'websocket' });
+  res.end('WebSocket upgrade required');
 });
 
 // ============================================================
@@ -202,8 +212,10 @@ const server = http.createServer((req, res) => {
 // This ensures the password is only ever present on the server.
 // ============================================================
 
-server.on('upgrade', (req, clientSocket, head) => {
+wsServer.on('upgrade', (req, clientSocket, head) => {
   const reqPath = url.parse(req.url || '/').pathname;
+  console.log(`[ws-relay] Upgrade request: ${reqPath} from ${req.socket.remoteAddress}`);
+
   if (reqPath !== '/ws') {
     clientSocket.write('HTTP/1.1 404 Not Found\r\n\r\n');
     clientSocket.destroy();
@@ -211,6 +223,7 @@ server.on('upgrade', (req, clientSocket, head) => {
   }
 
   // Open TCP connection to gateway
+  console.log(`[ws-relay] Connecting to gateway at ${gwHost}:${gwPort}`);
   const gwSocket = net.connect(gwPort, gwHost);
 
   // Buffer frames from browser while auth is in progress
@@ -317,12 +330,16 @@ server.on('upgrade', (req, clientSocket, head) => {
     clearTimeout(authTimeout);
     console.error('[ws-relay] Gateway connection error:', err.message);
     try {
-      clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\nGateway unavailable\r\n');
+      clientSocket.write(buildTextFrame(JSON.stringify({
+        type: 'event', event: 'connect.error',
+        payload: { message: `Gateway unreachable: ${err.message}` }
+      })));
     } catch { /* ignore */ }
     clientSocket.destroy();
   });
 
   gwSocket.on('connect', () => {
+    console.log(`[ws-relay] Gateway TCP connected`);
     // Send HTTP upgrade request to gateway
     const reqLine  = `GET ${gwUrl.pathname || '/'} HTTP/1.1\r\n`;
     const wsKey    = crypto.randomBytes(16).toString('base64');
@@ -334,6 +351,13 @@ server.on('upgrade', (req, clientSocket, head) => {
       'Sec-WebSocket-Version: 13',
     ].join('\r\n');
     gwSocket.write(reqLine + headers + '\r\n\r\n');
+    console.log(`[ws-relay] Sent WS upgrade to gateway`);
+  });
+
+  gwSocket.on('close', (hadError) => {
+    if (!authComplete) {
+      console.error(`[ws-relay] Gateway socket closed before auth complete (hadError=${hadError})`);
+    }
   });
 
   gwSocket.on('data', (chunk) => {
@@ -440,6 +464,7 @@ server.on('upgrade', (req, clientSocket, head) => {
 
   gwSocket.on('end', () => {
     clearTimeout(authTimeout);
+    console.log('[ws-relay] Gateway socket ended');
     clientSocket.end();
   });
 
@@ -457,6 +482,7 @@ server.on('upgrade', (req, clientSocket, head) => {
     'Connection: Upgrade\r\n' +
     `Sec-WebSocket-Accept: ${acceptKey}\r\n\r\n`
   );
+  console.log('[ws-relay] Sent 101 to browser, waiting for gateway auth...');
 
   // Forward the initial head data if any
   if (head && head.length > 0) {
@@ -492,7 +518,14 @@ server.on('upgrade', (req, clientSocket, head) => {
 
   clientSocket.on('end', () => {
     clearTimeout(authTimeout);
+    console.log('[ws-relay] Client socket ended (browser disconnected)');
     gwSocket.end();
+  });
+
+  clientSocket.on('close', (hadError) => {
+    if (!authComplete) {
+      console.error(`[ws-relay] Client socket closed before auth complete (hadError=${hadError})`);
+    }
   });
 });
 
@@ -500,8 +533,18 @@ server.on('upgrade', (req, clientSocket, head) => {
 // Start
 // ============================================================
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[mission-control] Listening on port ${PORT}`);
+  console.log(`[mission-control] HTTP listening on port ${PORT}`);
 });
 
-process.on('SIGTERM', () => { server.close(() => process.exit(0)); });
-process.on('SIGINT',  () => { server.close(() => process.exit(0)); });
+wsServer.listen(WS_PORT, '0.0.0.0', () => {
+  console.log(`[mission-control] WS listening on port ${WS_PORT} (direct)`);
+});
+
+process.on('SIGTERM', () => {
+  server.close();
+  wsServer.close(() => process.exit(0));
+});
+process.on('SIGINT', () => {
+  server.close();
+  wsServer.close(() => process.exit(0));
+});

@@ -74,10 +74,13 @@ type PendingRequest = {
 // Constants
 // ---------------------------------------------------------------------------
 
+// WS connects directly on port 3001, bypassing Traefik (which kills WS connections).
+// HTTP (static files, /api/costs) stays on port 3000 through Traefik as normal.
+const WS_PORT = 3001;
 const WS_PATH =
   typeof window !== "undefined"
-    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws`
-    : "ws://localhost:3000/ws";
+    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${WS_PORT}/ws`
+    : `ws://localhost:${WS_PORT}/ws`;
 
 const RECONNECT_BASE_MS   = 3_000;
 const REQUEST_TIMEOUT_MS  = 12_000;
