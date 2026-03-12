@@ -115,7 +115,19 @@ function getAgentEmoji(authorId: string): string {
 
 /** Minimal Markdown → HTML renderer (no external deps) */
 function renderMarkdown(md: string): string {
-  return md
+  // Step 1: extract fenced code blocks FIRST before any other processing
+  const codeBlocks: string[] = [];
+  let processed = md.replace(/```([^\n]*)\n([\s\S]*?)```/g, (_match, lang, code) => {
+    const escaped = code
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const langAttr = lang.trim() ? ` class="language-${lang.trim()}"` : "";
+    codeBlocks.push(`<pre><code${langAttr}>${escaped}</code></pre>`);
+    return `\x00CODEBLOCK${codeBlocks.length - 1}\x00`;
+  });
+
+  processed = processed
     // Headings
     .replace(/^#### (.+)$/gm, "<h4>$1</h4>")
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
@@ -146,17 +158,21 @@ function renderMarkdown(md: string): string {
     // Unordered lists
     .replace(/^[\-\*] (.+)$/gm, "<li>$1</li>")
     .replace(/(<li>.*<\/li>\n?)+/gs, "<ul>$&</ul>")
-    // Inline code
-    .replace(/`(.+?)`/g, "<code>$1</code>")
+    // Inline code (single backtick — runs after fenced blocks are extracted)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
     // Paragraphs — blank-line separated blocks not already tagged
     .split(/\n\n+/)
     .map(block => {
       const trimmed = block.trim();
-      if (/^<(h[1-6]|ul|ol|li|table|hr|blockquote)/.test(trimmed)) return trimmed;
+      if (/^<(h[1-6]|ul|ol|li|table|hr|blockquote|pre)/.test(trimmed)) return trimmed;
+      if (/^\x00CODEBLOCK\d+\x00$/.test(trimmed)) return trimmed;
       if (trimmed === "") return "";
       return `<p>${trimmed.replace(/\n/g, "<br/>")}</p>`;
     })
     .join("\n");
+
+  // Step 2: restore code blocks
+  return processed.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, i) => codeBlocks[parseInt(i)]);
 }
 
 /** Shows a download link for a document with a Convex storageId */
