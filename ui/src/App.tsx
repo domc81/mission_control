@@ -19,6 +19,7 @@ type Agent = {
   emoji?: string;
   capabilities?: string[];
   heartbeatAt?: number;
+  activeTaskCount?: number;
 };
 
 type Task = {
@@ -588,6 +589,7 @@ function App() {
   const dashboard = useQuery(api.getDashboard.default);
   const taskBoard = useQuery(api.getTasksByStatus.default);
   const activities = useQuery(api.getActivitiesFiltered.default, { limit: 30 });
+  const tasks = taskBoard?.in_progress || [];
   const documents = useQuery(api.getDocuments.default);
   const auditLog = useQuery(api.getAuditLog.default, { limit: 20 });
   const updateTaskStatus = useMutation(api.updateTaskStatus.default);
@@ -863,14 +865,17 @@ function App() {
               <section className="panel">
                 <h2>Squad Status</h2>
                 <div className="agents-grid">
-                  {dashboard.agents.map((agent: Agent) => (
-                    <div key={agent._id} className={`agent-card status-${agent.status || "offline"}`}>
+                  {dashboard.agents.map((agent: Agent) => {
+                    // Count active tasks for this agent
+                    const activeTaskCount = tasks.filter((task: Task) =>
+                      task.assignees && task.assignees.includes(agent._id)
+                    ).length;
                       <div className="agent-emoji">{agent.emoji || "🤖"}</div>
                       <div className="agent-info">
                         <strong>{agent.name}</strong>
                         <span className="agent-role">{agent.role}</span>
                         <span className={`agent-status ${agent.status || "offline"}`}>
-                          {agent.status || "offline"}
+                          {agent.status || "offline"}{(activeTaskCount > 0) && ` • ${activeTaskCount} task${activeTaskCount !== 1 ? 's' : ''} in progress`}
                         </span>
                         {agent.capabilities && agent.capabilities.length > 0 && (
                           <div className="agent-capabilities">
@@ -886,7 +891,8 @@ function App() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   {dashboard.agents.length === 0 && (
                     <p className="empty-state">No agents registered yet</p>
                   )}
