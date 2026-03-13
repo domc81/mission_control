@@ -22,6 +22,7 @@ type SocialPost = {
   platform: string;
   content: string;
   status: PostStatus;
+  content_type: "curated" | "original" | "personal" | null;
   scheduled_for: string | null;
   posted_at: string | null;
   created_at: string;
@@ -110,26 +111,17 @@ function postDateKey(post: SocialPost): string | null {
 // ---------------------------------------------------------------------------
 // 5-3-2 Mix analysis — rolling last 10 posts
 // ---------------------------------------------------------------------------
-type MixCategory = "curated" | "original" | "personal" | "unknown";
-
-function classifyPost(_post: SocialPost): MixCategory {
-  // Heuristic: in a real system you'd store this. For now, tag by content patterns.
-  // Posts created by Loki (long copy, no "RT" equivalent) = original
-  // Posts with a URL that isn't dc81.io = curated
-  // Real system: add a `content_type` column to social_posts
-  return "original"; // Default until content_type column exists
-}
-
-type MixCount = { curated: number; original: number; personal: number; total: number };
+type MixCount = { curated: number; original: number; personal: number; untagged: number; total: number };
 
 function computeMix(posts: SocialPost[]): MixCount {
   const last10 = [...posts]
     .sort((a, b) => (b.posted_at ?? b.created_at) > (a.posted_at ?? a.created_at) ? 1 : -1)
     .slice(0, 10);
-  const mix: MixCount = { curated: 0, original: 0, personal: 0, total: last10.length };
+  const mix: MixCount = { curated: 0, original: 0, personal: 0, untagged: 0, total: last10.length };
   last10.forEach(p => {
-    const cat = classifyPost(p);
-    if (cat !== "unknown") mix[cat]++;
+    const t = p.content_type;
+    if (t === "curated" || t === "original" || t === "personal") mix[t]++;
+    else mix.untagged++;
   });
   return mix;
 }
@@ -225,7 +217,7 @@ export function ContentCalendar({ supabaseUrl, supabaseKey, authToken }: Props) 
   const fetchPosts = useCallback(async () => {
     try {
       const r = await fetch(
-        `${supabaseUrl}/rest/v1/social_posts?select=id,platform,content,status,scheduled_for,posted_at,created_at&order=created_at.desc&limit=500`,
+        `${supabaseUrl}/rest/v1/social_posts?select=id,platform,content,status,content_type,scheduled_for,posted_at,created_at&order=created_at.desc&limit=500`,
         { headers }
       );
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -380,6 +372,11 @@ export function ContentCalendar({ supabaseUrl, supabaseKey, authToken }: Props) 
               </div>
             );
           })}
+          {mix.untagged > 0 && (
+            <span style={{ fontSize: "10px", color: "#f59e0b" }}>
+              {mix.untagged} untagged — tag in Content section
+            </span>
+          )}
           <span style={{ fontSize: "10px", color: "#4b5563", marginLeft: "auto" }}>
             {postedPosts.length} posts published total
           </span>
@@ -479,11 +476,20 @@ export function ContentCalendar({ supabaseUrl, supabaseKey, authToken }: Props) 
                     <p style={{ margin: "0 0 8px", fontSize: "12px", color: "#d1d5db", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                       {post.content}
                     </p>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusCol }} />
                       <span style={{ fontSize: "10px", color: "#6b7280", textTransform: "capitalize" }}>
                         {post.status.replace("_", " ")}
                       </span>
+                      {post.content_type && (
+                        <span style={{
+                          fontSize: "10px", padding: "1px 6px", borderRadius: "6px",
+                          background: post.content_type === "curated" ? "rgba(59,130,246,0.15)" : post.content_type === "personal" ? "rgba(34,197,94,0.15)" : "rgba(139,92,246,0.15)",
+                          color: post.content_type === "curated" ? "#3b82f6" : post.content_type === "personal" ? "#22c55e" : "#8b5cf6",
+                        }}>
+                          {post.content_type}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

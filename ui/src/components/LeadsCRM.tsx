@@ -6,7 +6,7 @@
  * Features: pipeline kanban, lead detail panel, stage move, notes (via message field)
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -182,6 +182,46 @@ export function LeadsCRM({ supabaseUrl, supabaseKey, authToken }: Props) {
       setMovingStage(false);
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // Drag handlers
+  // ---------------------------------------------------------------------------
+  const handleDragStart = useCallback((e: React.DragEvent, leadId: string) => {
+    dragLeadId.current = leadId;
+    e.dataTransfer.effectAllowed = "move";
+    // Ghost image: use the card element itself
+    (e.currentTarget as HTMLElement).style.opacity = "0.5";
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    (e.currentTarget as HTMLElement).style.opacity = "1";
+    dragLeadId.current = null;
+    setDragOverStage(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, stage: PipelineStage) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverStage(stage);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent, stage: PipelineStage) => {
+    // Only clear if leaving the column entirely (not just entering a child)
+    const related = e.relatedTarget as Node | null;
+    if (!(e.currentTarget as HTMLElement).contains(related)) {
+      setDragOverStage(prev => prev === stage ? null : prev);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent, stage: PipelineStage) => {
+    e.preventDefault();
+    setDragOverStage(null);
+    const id = dragLeadId.current;
+    if (!id) return;
+    const lead = leads.find(l => l.id === id);
+    if (!lead || lead.pipeline_stage === stage) return;
+    await moveStage(id, stage);
+  }, [leads, moveStage]);
 
   // ---------------------------------------------------------------------------
   // Derived data
@@ -368,33 +408,9 @@ export function LeadsCRM({ supabaseUrl, supabaseKey, authToken }: Props) {
     );
   };
 
-  // ---------------------------------------------------------------------------
-  // Render — lead card (pipeline view)
-  // ---------------------------------------------------------------------------
-  const LeadCard = ({ lead }: { lead: Lead }) => {
-    const col = stageColour(lead.pipeline_stage);
-    const isSelected = selectedLead?.id === lead.id;
-    return (
-      <div
-        onClick={() => handleSelectLead(lead)}
-        style={{
-          padding: "12px", borderRadius: "8px", cursor: "pointer",
-          background: isSelected ? "#1a2236" : "#111827",
-          border: `1px solid ${isSelected ? col : "#1f2937"}`,
-          transition: "border-color 0.15s, background 0.15s",
-        }}
-      >
-        <p style={{ margin: "0 0 2px", fontSize: "13px", fontWeight: 600, color: "#f9fafb" }}>
-          {lead.company_name || lead.name}
-        </p>
-        <p style={{ margin: "0 0 6px", fontSize: "12px", color: "#9ca3af" }}>{lead.email}</p>
-        {lead.website_url && (
-          <p style={{ margin: "0 0 6px", fontSize: "11px", color: "#6b7280", wordBreak: "break-all" }}>{lead.website_url}</p>
-        )}
-        <p style={{ margin: 0, fontSize: "11px", color: "#4b5563" }}>{timeAgo(lead.created_at)}</p>
-      </div>
-    );
-  };
+    // Drag state — tracked in a ref to avoid re-renders while dragging
+  const dragLeadId = useRef<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<PipelineStage | null>(null);
 
   // ---------------------------------------------------------------------------
   // Main render
@@ -457,19 +473,64 @@ export function LeadsCRM({ supabaseUrl, supabaseKey, authToken }: Props) {
             <div style={{ display: "flex", gap: "12px", height: "100%", minWidth: "max-content" }}>
               {STAGES.map(stage => {
                 const stageLeads = byStage(stage.id);
+                const isDragTarget = dragOverStage === stage.id;
                 return (
-                  <div key={stage.id} style={{ width: "220px", flexShrink: 0, display: "flex", flexDirection: "column" }}>
+                  <div
+                    key={stage.id}
+                    style={{ width: "220px", flexShrink: 0, display: "flex", flexDirection: "column" }}
+                    onDragOver={e => handleDragOver(e, stage.id)}
+                    onDragLeave={e => handleDragLeave(e, stage.id)}
+                    onDrop={e => handleDrop(e, stage.id)}
+                  >
                     {/* Column header */}
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
                       <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: stage.colour, flexShrink: 0 }} />
                       <span style={{ fontSize: "12px", fontWeight: 600, color: "#d1d5db" }}>{stage.label}</span>
                       <span style={{ marginLeft: "auto", fontSize: "11px", color: "#6b7280", background: "#1f2937", padding: "1px 7px", borderRadius: "10px" }}>{stageLeads.length}</span>
                     </div>
-                    {/* Cards */}
-                    <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
-                      {stageLeads.map(lead => <LeadCard key={lead.id} lead={lead} />)}
+                    {/* Drop zone */}
+                    <div style={{
+                      flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px",
+                      borderRadius: "8px", padding: "4px",
+                      border: isDragTarget ? `2px dashed ${stage.colour}` : "2px solid transparent",
+                      background: isDragTarget ? `${stage.colour}08` : "transparent",
+                      transition: "border-color 0.15s, background 0.15s",
+                      minHeight: "80px",
+                    }}>
+                      {stageLeads.map(lead => {
+                        const col = stageColour(lead.pipeline_stage);
+                        const isSelected = selectedLead?.id === lead.id;
+                        return (
+                          <div
+                            key={lead.id}
+                            draggable
+                            onDragStart={e => handleDragStart(e, lead.id)}
+                            onDragEnd={handleDragEnd}
+                            onClick={() => handleSelectLead(lead)}
+                            style={{
+                              padding: "12px", borderRadius: "8px",
+                              cursor: "grab",
+                              background: isSelected ? "#1a2236" : "#111827",
+                              border: `1px solid ${isSelected ? col : "#1f2937"}`,
+                              transition: "border-color 0.15s, background 0.15s",
+                              userSelect: "none",
+                            }}
+                          >
+                            <p style={{ margin: "0 0 2px", fontSize: "13px", fontWeight: 600, color: "#f9fafb" }}>
+                              {lead.company_name || lead.name}
+                            </p>
+                            <p style={{ margin: "0 0 6px", fontSize: "12px", color: "#9ca3af" }}>{lead.email}</p>
+                            {lead.website_url && (
+                              <p style={{ margin: "0 0 6px", fontSize: "11px", color: "#6b7280", wordBreak: "break-all" }}>{lead.website_url}</p>
+                            )}
+                            <p style={{ margin: 0, fontSize: "11px", color: "#4b5563" }}>{timeAgo(lead.created_at)}</p>
+                          </div>
+                        );
+                      })}
                       {stageLeads.length === 0 && (
-                        <p style={{ fontSize: "12px", color: "#4b5563", textAlign: "center", padding: "20px 0" }}>Empty</p>
+                        <p style={{ fontSize: "12px", color: "#4b5563", textAlign: "center", padding: "20px 0" }}>
+                          {isDragTarget ? "Drop here" : "Empty"}
+                        </p>
                       )}
                     </div>
                   </div>

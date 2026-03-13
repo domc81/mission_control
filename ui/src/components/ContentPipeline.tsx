@@ -27,6 +27,7 @@ type SocialPost = {
   content: string;
   media_urls: string[] | null;
   status: "pending_approval" | "approved" | "rejected" | "posted" | "failed";
+  content_type: "curated" | "original" | "personal" | null;
   scheduled_for: string | null;
   posted_at: string | null;
   platform_post_id: string | null;
@@ -145,21 +146,42 @@ function useSupabasePosts(supabaseUrl: string, supabaseKey: string) {
     return res.ok;
   }, [supabaseUrl, supabaseKey]);
 
-  return { posts, loading, error, fetchPosts, approve, reject };
+  const setContentType = useCallback(async (id: string, type: "curated" | "original" | "personal"): Promise<void> => {
+    await fetch(
+      `${supabaseUrl}/rest/v1/social_posts?id=eq.${id}`,
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ content_type: type, updated_at: new Date().toISOString() }),
+      }
+    );
+    // Optimistic update
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, content_type: type } : p));
+  }, [supabaseUrl, supabaseKey]);
+
+  return { posts, loading, error, fetchPosts, approve, reject, setContentType };
 }
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
+const CONTENT_TYPE_CFG = {
+  curated:  { label: "Curated",  colour: "#3b82f6" },
+  original: { label: "Original", colour: "#8b5cf6" },
+  personal: { label: "Personal", colour: "#22c55e" },
+};
+
 function PostCard({
   post,
   onApprove,
   onReject,
+  onSetContentType,
 }: {
   post: SocialPost;
   onApprove?: (id: string) => void;
   onReject?:  (id: string) => void;
+  onSetContentType?: (id: string, type: "curated" | "original" | "personal") => void;
 }) {
   const [rejecting, setRejecting]     = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -191,6 +213,31 @@ function PostCard({
           {post.status.replace("_", " ")}
         </span>
         <span className="cp-post-age">{timeAgo(post.created_at)}</span>
+      </div>
+
+      {/* Content type tag */}
+      <div style={{ display: "flex", gap: "4px", marginBottom: "8px", flexWrap: "wrap" }}>
+        {(["curated", "original", "personal"] as const).map(type => {
+          const cfg = CONTENT_TYPE_CFG[type];
+          const active = (post.content_type ?? "original") === type;
+          return (
+            <button
+              key={type}
+              onClick={() => onSetContentType?.(post.id, type)}
+              title={`Tag as ${cfg.label}`}
+              style={{
+                padding: "2px 8px", fontSize: "10px", borderRadius: "8px", cursor: "pointer",
+                border: `1px solid ${active ? cfg.colour : "#374151"}`,
+                background: active ? `${cfg.colour}20` : "transparent",
+                color: active ? cfg.colour : "#6b7280",
+                fontWeight: active ? 600 : 400,
+                transition: "all 0.12s",
+              }}
+            >
+              {cfg.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="cp-post-content">{post.content}</div>
@@ -276,7 +323,7 @@ function PostCard({
 // ---------------------------------------------------------------------------
 
 export function ContentPipeline({ supabaseUrl, supabaseKey }: Props) {
-  const { posts, loading, error, fetchPosts, approve, reject } = useSupabasePosts(supabaseUrl, supabaseKey);
+  const { posts, loading, error, fetchPosts, approve, reject, setContentType } = useSupabasePosts(supabaseUrl, supabaseKey);
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "posted" | "failed" | "rejected">("pending");
 
   const pending  = posts.filter(p => p.status === "pending_approval");
@@ -352,6 +399,7 @@ export function ContentPipeline({ supabaseUrl, supabaseKey }: Props) {
                 post={post}
                 onApprove={activeTab === "pending" ? approve : undefined}
                 onReject={activeTab === "pending"  ? reject  : undefined}
+                onSetContentType={setContentType}
               />
             ))
           )}
