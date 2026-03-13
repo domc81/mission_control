@@ -1,25 +1,19 @@
 /**
  * BlogManager.tsx — Phase 6
  *
- * Manage blog_posts from Supabase in Mission Control.
- * Features:
- *  - List all posts (draft/review/published) with status filter
- *  - Click post → detail/edit panel
- *  - Inline status transitions: draft → review → published → draft
- *  - Edit title, excerpt, category, date, read_time (metadata only — content TBD via editor)
- *  - Full content editor (textarea — HTML)
- *  - New post creation
- *  - One-click publish / unpublish
+ * IMPORTANT: EditPanel and PostRow are top-level components (not nested inside BlogManager).
+ * Defining components inside a render function causes React to treat them as new component
+ * types on every render → full unmount/remount → focus loss on every keystroke.
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 type PostStatus = "draft" | "review" | "published";
 
-type BlogPost = {
+export type BlogPost = {
   id: string;
   slug: string;
   title: string;
@@ -39,13 +33,7 @@ type BlogPost = {
   updated_at: string;
 };
 
-type PostDraft = Omit<BlogPost, "id" | "created_at" | "updated_at">;
-
-type Props = {
-  supabaseUrl: string;
-  supabaseKey: string;  // anon key
-  authToken: string;    // session JWT
-};
+export type PostDraft = Omit<BlogPost, "id" | "created_at" | "updated_at">;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -68,8 +56,22 @@ const SERVICE_LINKS = [
   "/contact",
 ];
 
-const HERO_ICONS = ["Search", "Globe", "Brain", "MessageSquare", "Monitor", "ClipboardCheck", "Code", "BarChart"];
+// Built-in icon options — user can also type a custom URL in hero_icon
+const HERO_ICON_OPTIONS = [
+  { value: "", label: "— None / custom URL below —" },
+  { value: "Search",         label: "Search (magnifier)" },
+  { value: "Globe",          label: "Globe" },
+  { value: "Brain",          label: "Brain" },
+  { value: "MessageSquare",  label: "Message" },
+  { value: "Monitor",        label: "Monitor" },
+  { value: "ClipboardCheck", label: "Clipboard" },
+  { value: "Code",           label: "Code" },
+  { value: "BarChart",       label: "Bar Chart" },
+];
 
+// ---------------------------------------------------------------------------
+// Helpers (module-level — stable references)
+// ---------------------------------------------------------------------------
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -84,9 +86,6 @@ function slugify(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
 }
 
-// ---------------------------------------------------------------------------
-// Blank post template
-// ---------------------------------------------------------------------------
 function blankPost(): PostDraft {
   return {
     slug: "",
@@ -106,9 +105,337 @@ function blankPost(): PostDraft {
   };
 }
 
+const inputStyle: React.CSSProperties = {
+  width: "100%", padding: "7px 10px", fontSize: "12px", borderRadius: "6px",
+  border: "1px solid #374151", background: "#111827", color: "#f9fafb",
+  outline: "none", boxSizing: "border-box",
+};
+const labelStyle: React.CSSProperties = {
+  fontSize: "11px", color: "#6b7280", marginBottom: "3px", display: "block",
+};
+
 // ---------------------------------------------------------------------------
-// Component
+// EditPanel — TOP-LEVEL component (never defined inside another component)
 // ---------------------------------------------------------------------------
+type EditPanelProps = {
+  editDraft: PostDraft;
+  isNew: boolean;
+  saving: boolean;
+  saveMsg: string | null;
+  selectedPost: BlogPost | null;
+  onFieldChange: (key: keyof PostDraft, value: string | string[]) => void;
+  onTitleChange: (title: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+  onPublish: () => void;
+  onUploadHero: (file: File) => void;
+  uploadingHero: boolean;
+};
+
+function EditPanel({
+  editDraft, isNew, saving, saveMsg, selectedPost,
+  onFieldChange, onTitleChange, onClose, onSave, onPublish,
+  onUploadHero, uploadingHero,
+}: EditPanelProps) {
+  const cfg = STATUS_CFG[editDraft.status];
+  const postUrl = `https://dc81.io/blog/${editDraft.slug}`;
+
+  // Is the hero_icon a URL (image) or an icon name?
+  const knownIcons = HERO_ICON_OPTIONS.map(o => o.value).filter(Boolean);
+  const heroIsImage = editDraft.hero_icon && !knownIcons.includes(editDraft.hero_icon);
+  const heroSelectValue = heroIsImage ? "" : (editDraft.hero_icon || "");
+
+  return (
+    <div style={{
+      width: "480px", flexShrink: 0, borderLeft: "1px solid #1f2937",
+      background: "#0d1117", overflowY: "auto", display: "flex", flexDirection: "column",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid #1f2937", display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: "11px", color: "#6b7280" }}>{isNew ? "New post" : "Editing"}</p>
+          <p style={{ margin: "2px 0 0", fontSize: "13px", fontWeight: 600, color: "#f9fafb", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "300px" }}>
+            {editDraft.title || "Untitled"}
+          </p>
+        </div>
+        <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 9px", borderRadius: "8px", border: `1px solid ${cfg.colour}40`, color: cfg.colour }}>
+          {cfg.label}
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: "16px" }}>✕</button>
+      </div>
+
+      {/* Fields */}
+      <div style={{ flex: 1, padding: "16px 20px", display: "flex", flexDirection: "column", gap: "12px", overflowY: "auto" }}>
+
+        {/* Title */}
+        <div>
+          <label style={labelStyle}>Title *</label>
+          <input
+            style={inputStyle}
+            value={editDraft.title}
+            onChange={e => onTitleChange(e.target.value)}
+            placeholder="Post title"
+          />
+        </div>
+
+        {/* Slug */}
+        <div>
+          <label style={labelStyle}>Slug *</label>
+          <input
+            style={inputStyle}
+            value={editDraft.slug}
+            onChange={e => onFieldChange("slug", e.target.value)}
+            placeholder="url-friendly-slug"
+          />
+          {!isNew && editDraft.slug && (
+            <a href={postUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: "10px", color: "#00d4ff", marginTop: "2px", display: "block" }}>
+              {postUrl} ↗
+            </a>
+          )}
+        </div>
+
+        {/* Date + Read time */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <div>
+            <label style={labelStyle}>Date *</label>
+            <input style={inputStyle} type="date" value={editDraft.date} onChange={e => onFieldChange("date", e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>Read time</label>
+            <input style={inputStyle} value={editDraft.read_time} onChange={e => onFieldChange("read_time", e.target.value)} placeholder="8 min" />
+          </div>
+        </div>
+
+        {/* Category + Service link */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <div>
+            <label style={labelStyle}>Category</label>
+            <select style={inputStyle} value={editDraft.category} onChange={e => onFieldChange("category", e.target.value)}>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Service link</label>
+            <select style={inputStyle} value={editDraft.service_link} onChange={e => onFieldChange("service_link", e.target.value)}>
+              {SERVICE_LINKS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Hero image — icon picker + image upload */}
+        <div>
+          <label style={labelStyle}>Hero image</label>
+          {/* Icon picker */}
+          <select
+            style={{ ...inputStyle, marginBottom: "6px" }}
+            value={heroSelectValue}
+            onChange={e => onFieldChange("hero_icon", e.target.value)}
+          >
+            {HERO_ICON_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+
+          {/* If custom URL selected: show current value editable */}
+          {heroIsImage && (
+            <div style={{ marginBottom: "6px" }}>
+              <input
+                style={{ ...inputStyle, fontSize: "10px", color: "#9ca3af" }}
+                value={editDraft.hero_icon}
+                onChange={e => onFieldChange("hero_icon", e.target.value)}
+                placeholder="https://... or /images/..."
+              />
+            </div>
+          )}
+
+          {/* Upload */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{
+              padding: "5px 12px", fontSize: "11px", borderRadius: "6px", cursor: "pointer",
+              border: "1px solid #374151", background: "#111827", color: "#9ca3af",
+              opacity: uploadingHero ? 0.5 : 1,
+            }}>
+              {uploadingHero ? "Uploading…" : "📁 Upload image"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                style={{ display: "none" }}
+                disabled={uploadingHero}
+                onChange={e => { if (e.target.files?.[0]) onUploadHero(e.target.files[0]); }}
+              />
+            </label>
+            {heroIsImage && (
+              <span style={{ fontSize: "10px", color: "#22c55e" }}>✓ Image set</span>
+            )}
+            {editDraft.hero_icon && knownIcons.includes(editDraft.hero_icon) && (
+              <span style={{ fontSize: "10px", color: "#9ca3af" }}>Using icon: {editDraft.hero_icon}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Excerpt */}
+        <div>
+          <label style={labelStyle}>Excerpt *</label>
+          <textarea
+            style={{ ...inputStyle, height: "60px", resize: "vertical" }}
+            value={editDraft.excerpt}
+            onChange={e => onFieldChange("excerpt", e.target.value)}
+            placeholder="One-paragraph summary shown on blog listing"
+          />
+        </div>
+
+        {/* Meta title */}
+        <div>
+          <label style={labelStyle}>Meta title</label>
+          <input
+            style={inputStyle}
+            value={editDraft.meta_title}
+            onChange={e => onFieldChange("meta_title", e.target.value)}
+            placeholder="Title for search engines | DC81"
+          />
+          <p style={{ fontSize: "10px", color: editDraft.meta_title.length > 60 ? "#ef4444" : "#6b7280", margin: "2px 0 0" }}>
+            {editDraft.meta_title.length}/60 chars
+          </p>
+        </div>
+
+        {/* Meta desc */}
+        <div>
+          <label style={labelStyle}>Meta description</label>
+          <textarea
+            style={{ ...inputStyle, height: "52px", resize: "vertical" }}
+            value={editDraft.meta_desc}
+            onChange={e => onFieldChange("meta_desc", e.target.value)}
+            placeholder="Search result description (120-160 chars)"
+          />
+          <p style={{ fontSize: "10px", color: editDraft.meta_desc.length > 160 ? "#ef4444" : "#6b7280", margin: "2px 0 0" }}>
+            {editDraft.meta_desc.length}/160 chars
+          </p>
+        </div>
+
+        {/* Keywords */}
+        <div>
+          <label style={labelStyle}>Keywords (comma-separated)</label>
+          <input
+            style={inputStyle}
+            value={(editDraft.keywords ?? []).join(", ")}
+            onChange={e => onFieldChange("keywords", e.target.value.split(",").map(k => k.trim()).filter(Boolean))}
+            placeholder="keyword one, keyword two"
+          />
+        </div>
+
+        {/* Content */}
+        <div>
+          <label style={labelStyle}>Content (HTML)</label>
+          <textarea
+            style={{ ...inputStyle, height: "240px", resize: "vertical", fontFamily: "monospace", fontSize: "11px" }}
+            value={editDraft.content}
+            onChange={e => onFieldChange("content", e.target.value)}
+            placeholder="<p>Write your post content here in HTML...</p>"
+          />
+        </div>
+
+        {/* Status */}
+        <div>
+          <label style={labelStyle}>Status</label>
+          <select style={inputStyle} value={editDraft.status} onChange={e => onFieldChange("status", e.target.value)}>
+            <option value="draft">Draft</option>
+            <option value="review">Review</option>
+            <option value="published">Published</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div style={{ padding: "14px 20px", borderTop: "1px solid #1f2937", display: "flex", gap: "8px", alignItems: "center" }}>
+        <button
+          onClick={onSave}
+          disabled={saving || !editDraft.title || !editDraft.slug}
+          style={{
+            flex: 1, padding: "8px", fontSize: "13px", fontWeight: 600, borderRadius: "8px", cursor: "pointer",
+            border: "1px solid rgba(0,212,255,0.4)", background: "rgba(0,212,255,0.1)", color: "#00d4ff",
+            opacity: (saving || !editDraft.title || !editDraft.slug) ? 0.5 : 1,
+          }}
+        >
+          {saving ? "Saving…" : isNew ? "Create Post" : "Save Changes"}
+        </button>
+
+        {!isNew && selectedPost && editDraft.status !== "published" && (
+          <button
+            onClick={onPublish}
+            style={{
+              padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "8px", cursor: "pointer",
+              border: "1px solid rgba(34,197,94,0.4)", background: "rgba(34,197,94,0.1)", color: "#22c55e",
+            }}
+          >
+            🚀 Publish
+          </button>
+        )}
+      </div>
+
+      {saveMsg && (
+        <p style={{ margin: "0 20px 12px", fontSize: "12px", color: saveMsg.startsWith("✓") ? "#22c55e" : "#f87171" }}>
+          {saveMsg}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PostRow — TOP-LEVEL component
+// ---------------------------------------------------------------------------
+type PostRowProps = {
+  post: BlogPost;
+  isSelected: boolean;
+  onSelect: (post: BlogPost) => void;
+  onTransition: (post: BlogPost, status: PostStatus) => void;
+};
+
+function PostRow({ post, isSelected, onSelect, onTransition }: PostRowProps) {
+  const cfg = STATUS_CFG[post.status];
+  return (
+    <tr
+      onClick={() => onSelect(post)}
+      style={{ borderBottom: "1px solid #1f2937", cursor: "pointer", background: isSelected ? "#1a2236" : "transparent" }}
+    >
+      <td style={{ padding: "12px 16px" }}>
+        <div style={{ fontWeight: 600, color: "#f9fafb", fontSize: "13px" }}>{post.title}</div>
+        <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "2px" }}>/blog/{post.slug}</div>
+      </td>
+      <td style={{ padding: "12px 16px" }}>
+        <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "8px", border: `1px solid ${cfg.colour}40`, color: cfg.colour, fontWeight: 600 }}>
+          {cfg.label}
+        </span>
+      </td>
+      <td style={{ padding: "12px 16px", fontSize: "12px", color: "#9ca3af" }}>{post.category}</td>
+      <td style={{ padding: "12px 16px", fontSize: "12px", color: "#9ca3af", whiteSpace: "nowrap" }}>
+        {new Date(post.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+      </td>
+      <td style={{ padding: "12px 16px", fontSize: "11px", color: "#6b7280", whiteSpace: "nowrap" }}>
+        {timeAgo(post.updated_at)}
+      </td>
+      <td style={{ padding: "12px 16px" }}>
+        <button
+          onClick={e => { e.stopPropagation(); onTransition(post, STATUS_CFG[post.status].next); }}
+          style={{
+            padding: "3px 10px", fontSize: "11px", borderRadius: "6px", cursor: "pointer",
+            border: "1px solid #374151", background: "transparent", color: "#9ca3af", whiteSpace: "nowrap",
+          }}
+        >
+          {STATUS_CFG[post.status].nextLabel}
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BlogManager — main component
+// ---------------------------------------------------------------------------
+type Props = {
+  supabaseUrl: string;
+  supabaseKey: string;
+  authToken: string;
+};
+
 export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,7 +446,7 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
   const [editDraft, setEditDraft] = useState<PostDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
-  const keywordsRef = useRef<HTMLInputElement>(null);
+  const [uploadingHero, setUploadingHero] = useState(false);
 
   const headers = {
     apikey: supabaseKey,
@@ -150,12 +477,11 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
   // ---------------------------------------------------------------------------
-  // Select post (load full record)
+  // Select post
   // ---------------------------------------------------------------------------
-  const selectPost = async (post: BlogPost) => {
+  const selectPost = useCallback(async (post: BlogPost) => {
     setIsNew(false);
     setSaveMsg(null);
-    // Fetch full post including content
     const r = await fetch(
       `${supabaseUrl}/rest/v1/blog_posts?id=eq.${post.id}&select=*&limit=1`,
       { headers }
@@ -164,43 +490,89 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
     const full = rows[0] ?? post;
     setSelectedPost(full);
     setEditDraft({
-      slug: full.slug,
-      title: full.title,
-      date: full.date,
-      category: full.category,
-      excerpt: full.excerpt,
-      meta_title: full.meta_title,
-      meta_desc: full.meta_desc,
-      read_time: full.read_time,
-      keywords: full.keywords ?? [],
-      service_link: full.service_link,
-      author: full.author,
-      hero_icon: full.hero_icon,
-      content: full.content,
-      status: full.status,
+      slug: full.slug, title: full.title, date: full.date, category: full.category,
+      excerpt: full.excerpt, meta_title: full.meta_title, meta_desc: full.meta_desc,
+      read_time: full.read_time, keywords: full.keywords ?? [],
+      service_link: full.service_link, author: full.author,
+      hero_icon: full.hero_icon, content: full.content, status: full.status,
     });
-  };
+  }, [supabaseUrl, authToken]);
 
-  const startNew = () => {
+  const startNew = useCallback(() => {
     setSelectedPost(null);
     setIsNew(true);
     setSaveMsg(null);
     setEditDraft(blankPost());
-  };
+  }, []);
 
   // ---------------------------------------------------------------------------
-  // Save (create or update)
+  // Field change handlers — stable callbacks, no new function per render
   // ---------------------------------------------------------------------------
-  const save = async () => {
+  const handleFieldChange = useCallback((key: keyof PostDraft, value: string | string[]) => {
+    setEditDraft(prev => prev ? { ...prev, [key]: value } : prev);
+  }, []);
+
+  const handleTitleChange = useCallback((title: string) => {
+    setEditDraft(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        title,
+        slug: isNew ? slugify(title) : prev.slug,
+        meta_title: isNew ? `${title} | DC81` : prev.meta_title,
+      };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew]);
+
+  const handleClose = useCallback(() => {
+    setSelectedPost(null);
+    setIsNew(false);
+    setEditDraft(null);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Hero image upload
+  // ---------------------------------------------------------------------------
+  const handleUploadHero = useCallback(async (file: File) => {
+    setUploadingHero(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const filename = `blog-hero-${Date.now()}.${ext}`;
+      // Read credentials for upload (use service role via authToken as authenticated user)
+      const uploadRes = await fetch(
+        `${supabaseUrl}/storage/v1/object/social-media-assets/${filename}`,
+        {
+          method: "POST",
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": file.type,
+          },
+          body: file,
+        }
+      );
+      if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
+      const publicUrl = `${supabaseUrl}/storage/v1/object/public/social-media-assets/${filename}`;
+      setEditDraft(prev => prev ? { ...prev, hero_icon: publicUrl } : prev);
+    } catch (e) {
+      console.error("Hero upload failed:", e);
+    } finally {
+      setUploadingHero(false);
+    }
+  }, [supabaseUrl, supabaseKey, authToken]);
+
+  // ---------------------------------------------------------------------------
+  // Save
+  // ---------------------------------------------------------------------------
+  const handleSave = useCallback(async () => {
     if (!editDraft) return;
     setSaving(true);
     setSaveMsg(null);
     try {
       if (isNew) {
         const r = await fetch(`${supabaseUrl}/rest/v1/blog_posts`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(editDraft),
+          method: "POST", headers, body: JSON.stringify(editDraft),
         });
         if (!r.ok) throw new Error(await r.text());
         const created: BlogPost[] = await r.json();
@@ -209,9 +581,7 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
         setSaveMsg("✓ Post created");
       } else if (selectedPost) {
         const r = await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${selectedPost.id}`, {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify(editDraft),
+          method: "PATCH", headers, body: JSON.stringify(editDraft),
         });
         if (!r.ok) throw new Error(await r.text());
         const updated: BlogPost[] = await r.json();
@@ -224,27 +594,28 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [editDraft, isNew, selectedPost, supabaseUrl, authToken, fetchPosts]);
 
   // ---------------------------------------------------------------------------
-  // Quick status transition
+  // Status transitions
   // ---------------------------------------------------------------------------
-  const transitionStatus = async (post: BlogPost, newStatus: PostStatus) => {
+  const handleTransition = useCallback(async (post: BlogPost, newStatus: PostStatus) => {
     try {
       await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${post.id}`, {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify({ status: newStatus }),
+        method: "PATCH", headers, body: JSON.stringify({ status: newStatus }),
       });
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: newStatus } : p));
       if (selectedPost?.id === post.id) {
         setSelectedPost(prev => prev ? { ...prev, status: newStatus } : prev);
         setEditDraft(prev => prev ? { ...prev, status: newStatus } : prev);
       }
-    } catch {
-      // silent
-    }
-  };
+    } catch { /* silent */ }
+  }, [supabaseUrl, authToken, selectedPost]);
+
+  const handlePublish = useCallback(() => {
+    setEditDraft(prev => prev ? { ...prev, status: "published" } : prev);
+    if (selectedPost) handleTransition(selectedPost, "published");
+  }, [selectedPost, handleTransition]);
 
   // ---------------------------------------------------------------------------
   // Derived
@@ -253,25 +624,6 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
   const counts = { draft: 0, review: 0, published: 0 };
   posts.forEach(p => { counts[p.status] = (counts[p.status] ?? 0) + 1; });
 
-  // ---------------------------------------------------------------------------
-  // Edit panel field helper
-  // ---------------------------------------------------------------------------
-  const field = (key: keyof PostDraft) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    setEditDraft(prev => prev ? { ...prev, [key]: e.target.value } : prev);
-  };
-
-  const inputStyle = {
-    width: "100%", padding: "7px 10px", fontSize: "12px", borderRadius: "6px",
-    border: "1px solid #374151", background: "#111827", color: "#f9fafb",
-    outline: "none", boxSizing: "border-box" as const,
-  };
-  const labelStyle = { fontSize: "11px", color: "#6b7280", marginBottom: "3px", display: "block" };
-
-  // ---------------------------------------------------------------------------
-  // Loading
-  // ---------------------------------------------------------------------------
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "48px", color: "#9ca3af" }}>
@@ -281,241 +633,14 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
   }
 
   // ---------------------------------------------------------------------------
-  // Edit / New panel
-  // ---------------------------------------------------------------------------
-  const EditPanel = () => {
-    if (!editDraft) return null;
-    const cfg = STATUS_CFG[editDraft.status];
-    const postUrl = `https://dc81.io/blog/${editDraft.slug}`;
-
-    return (
-      <div style={{
-        width: "460px", flexShrink: 0, borderLeft: "1px solid #1f2937",
-        background: "#0d1117", overflowY: "auto", display: "flex", flexDirection: "column",
-      }}>
-        {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1f2937", display: "flex", alignItems: "center", gap: "10px" }}>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: "11px", color: "#6b7280" }}>{isNew ? "New post" : "Editing"}</p>
-            <p style={{ margin: "2px 0 0", fontSize: "13px", fontWeight: 600, color: "#f9fafb", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "300px" }}>
-              {editDraft.title || "Untitled"}
-            </p>
-          </div>
-          <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 9px", borderRadius: "8px", border: `1px solid ${cfg.colour}40`, color: cfg.colour }}>
-            {cfg.label}
-          </span>
-          <button onClick={() => { setSelectedPost(null); setIsNew(false); setEditDraft(null); }} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: "16px" }}>✕</button>
-        </div>
-
-        {/* Fields */}
-        <div style={{ flex: 1, padding: "16px 20px", display: "flex", flexDirection: "column", gap: "12px", overflowY: "auto" }}>
-
-          {/* Title + auto-slug */}
-          <div>
-            <label style={labelStyle}>Title *</label>
-            <input
-              style={inputStyle}
-              value={editDraft.title}
-              onChange={e => {
-                const title = e.target.value;
-                setEditDraft(prev => prev ? {
-                  ...prev,
-                  title,
-                  slug: isNew ? slugify(title) : prev.slug,
-                  meta_title: isNew ? `${title} | DC81` : prev.meta_title,
-                } : prev);
-              }}
-              placeholder="Post title"
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Slug *</label>
-            <input style={inputStyle} value={editDraft.slug} onChange={field("slug")} placeholder="url-friendly-slug" />
-            {!isNew && editDraft.slug && (
-              <a href={postUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: "10px", color: "#00d4ff", marginTop: "2px", display: "block" }}>
-                {postUrl} ↗
-              </a>
-            )}
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            <div>
-              <label style={labelStyle}>Date *</label>
-              <input style={inputStyle} type="date" value={editDraft.date} onChange={field("date")} />
-            </div>
-            <div>
-              <label style={labelStyle}>Read time</label>
-              <input style={inputStyle} value={editDraft.read_time} onChange={field("read_time")} placeholder="8 min" />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            <div>
-              <label style={labelStyle}>Category</label>
-              <select style={inputStyle} value={editDraft.category} onChange={field("category")}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Hero icon</label>
-              <select style={inputStyle} value={editDraft.hero_icon} onChange={field("hero_icon")}>
-                {HERO_ICONS.map(i => <option key={i} value={i}>{i}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Service link</label>
-            <select style={inputStyle} value={editDraft.service_link} onChange={field("service_link")}>
-              {SERVICE_LINKS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Excerpt *</label>
-            <textarea style={{ ...inputStyle, height: "60px", resize: "vertical" }} value={editDraft.excerpt} onChange={field("excerpt")} placeholder="One-paragraph summary shown on blog listing" />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Meta title</label>
-            <input style={inputStyle} value={editDraft.meta_title} onChange={field("meta_title")} placeholder="Title for search engines | DC81" />
-            <p style={{ fontSize: "10px", color: editDraft.meta_title.length > 60 ? "#ef4444" : "#6b7280", margin: "2px 0 0" }}>
-              {editDraft.meta_title.length}/60 chars
-            </p>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Meta description</label>
-            <textarea style={{ ...inputStyle, height: "52px", resize: "vertical" }} value={editDraft.meta_desc} onChange={field("meta_desc")} placeholder="Search result description (120-160 chars)" />
-            <p style={{ fontSize: "10px", color: editDraft.meta_desc.length > 160 ? "#ef4444" : "#6b7280", margin: "2px 0 0" }}>
-              {editDraft.meta_desc.length}/160 chars
-            </p>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Keywords (comma-separated)</label>
-            <input
-              ref={keywordsRef}
-              style={inputStyle}
-              defaultValue={(editDraft.keywords ?? []).join(", ")}
-              onBlur={e => setEditDraft(prev => prev ? { ...prev, keywords: e.target.value.split(",").map(k => k.trim()).filter(Boolean) } : prev)}
-              placeholder="keyword one, keyword two"
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Content (HTML)</label>
-            <textarea
-              style={{ ...inputStyle, height: "220px", resize: "vertical", fontFamily: "monospace", fontSize: "11px" }}
-              value={editDraft.content}
-              onChange={field("content")}
-              placeholder="<p>Write your post content here in HTML...</p>"
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Status</label>
-            <select style={inputStyle} value={editDraft.status} onChange={field("status") as (e: React.ChangeEvent<HTMLSelectElement>) => void}>
-              <option value="draft">Draft</option>
-              <option value="review">Review</option>
-              <option value="published">Published</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div style={{ padding: "14px 20px", borderTop: "1px solid #1f2937", display: "flex", gap: "8px", alignItems: "center" }}>
-          <button
-            onClick={save}
-            disabled={saving || !editDraft.title || !editDraft.slug}
-            style={{
-              flex: 1, padding: "8px", fontSize: "13px", fontWeight: 600, borderRadius: "8px", cursor: "pointer",
-              border: "1px solid rgba(0,212,255,0.4)", background: "rgba(0,212,255,0.1)", color: "#00d4ff",
-              opacity: (saving || !editDraft.title || !editDraft.slug) ? 0.5 : 1,
-            }}
-          >
-            {saving ? "Saving…" : isNew ? "Create Post" : "Save Changes"}
-          </button>
-
-          {!isNew && selectedPost && editDraft.status !== "published" && (
-            <button
-              onClick={() => {
-                setEditDraft(prev => prev ? { ...prev, status: "published" } : prev);
-                if (selectedPost) transitionStatus(selectedPost, "published");
-              }}
-              style={{
-                padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "8px", cursor: "pointer",
-                border: "1px solid rgba(34,197,94,0.4)", background: "rgba(34,197,94,0.1)", color: "#22c55e",
-              }}
-            >
-              🚀 Publish
-            </button>
-          )}
-        </div>
-
-        {saveMsg && (
-          <p style={{ margin: "0 20px 12px", fontSize: "12px", color: saveMsg.startsWith("✓") ? "#22c55e" : "#f87171" }}>
-            {saveMsg}
-          </p>
-        )}
-      </div>
-    );
-  };
-
-  // ---------------------------------------------------------------------------
-  // Post row
-  // ---------------------------------------------------------------------------
-  const PostRow = ({ post }: { post: BlogPost }) => {
-    const cfg = STATUS_CFG[post.status];
-    const isSelected = selectedPost?.id === post.id || (isNew && false);
-    return (
-      <tr
-        onClick={() => selectPost(post)}
-        style={{ borderBottom: "1px solid #1f2937", cursor: "pointer", background: isSelected ? "#1a2236" : "transparent" }}
-      >
-        <td style={{ padding: "12px 16px" }}>
-          <div style={{ fontWeight: 600, color: "#f9fafb", fontSize: "13px" }}>{post.title}</div>
-          <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "2px" }}>/blog/{post.slug}</div>
-        </td>
-        <td style={{ padding: "12px 16px" }}>
-          <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "8px", border: `1px solid ${cfg.colour}40`, color: cfg.colour, fontWeight: 600 }}>
-            {cfg.label}
-          </span>
-        </td>
-        <td style={{ padding: "12px 16px", fontSize: "12px", color: "#9ca3af" }}>{post.category}</td>
-        <td style={{ padding: "12px 16px", fontSize: "12px", color: "#9ca3af", whiteSpace: "nowrap" }}>
-          {new Date(post.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-        </td>
-        <td style={{ padding: "12px 16px", fontSize: "11px", color: "#6b7280", whiteSpace: "nowrap" }}>
-          {timeAgo(post.updated_at)}
-        </td>
-        <td style={{ padding: "12px 16px" }}>
-          <button
-            onClick={e => { e.stopPropagation(); transitionStatus(post, STATUS_CFG[post.status].next); }}
-            style={{
-              padding: "3px 10px", fontSize: "11px", borderRadius: "6px", cursor: "pointer",
-              border: "1px solid #374151", background: "transparent", color: "#9ca3af",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {STATUS_CFG[post.status].nextLabel}
-          </button>
-        </td>
-      </tr>
-    );
-  };
-
-  // ---------------------------------------------------------------------------
-  // Main render
+  // Render
   // ---------------------------------------------------------------------------
   return (
     <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
-      {/* Main */}
+      {/* Main list */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Toolbar */}
         <div style={{ padding: "14px 20px", borderBottom: "1px solid #1f2937", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          {/* Counts */}
           <div style={{ display: "flex", gap: "16px" }}>
             {(Object.entries(counts) as [PostStatus, number][]).map(([s, n]) => {
               const cfg = STATUS_CFG[s];
@@ -529,19 +654,16 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
           </div>
 
           <div style={{ marginLeft: "auto", display: "flex", gap: "6px", alignItems: "center" }}>
-            {/* Status filter */}
             {([{ id: "all", label: "All", colour: "#9ca3af" }, ...Object.entries(STATUS_CFG).map(([id, c]) => ({ id, label: c.label, colour: c.colour }))] as const).map((s: any) => (
-              <button key={s.id} onClick={() => setFilterStatus(s.id)}
-                style={{
-                  padding: "5px 10px", fontSize: "11px", borderRadius: "6px", cursor: "pointer",
-                  border: `1px solid ${filterStatus === s.id ? s.colour : "#374151"}`,
-                  background: filterStatus === s.id ? `${s.colour}20` : "transparent",
-                  color: filterStatus === s.id ? s.colour : "#9ca3af",
-                }}>
+              <button key={s.id} onClick={() => setFilterStatus(s.id)} style={{
+                padding: "5px 10px", fontSize: "11px", borderRadius: "6px", cursor: "pointer",
+                border: `1px solid ${filterStatus === s.id ? s.colour : "#374151"}`,
+                background: filterStatus === s.id ? `${s.colour}20` : "transparent",
+                color: filterStatus === s.id ? s.colour : "#9ca3af",
+              }}>
                 {s.label}
               </button>
             ))}
-
             <button onClick={startNew} style={{
               padding: "6px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", cursor: "pointer",
               border: "1px solid rgba(0,212,255,0.4)", background: "rgba(0,212,255,0.1)", color: "#00d4ff",
@@ -558,7 +680,6 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
           </div>
         )}
 
-        {/* Table */}
         <div style={{ flex: 1, overflow: "auto", padding: "0 20px 20px" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
@@ -569,7 +690,15 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(post => <PostRow key={post.id} post={post} />)}
+              {filtered.map(post => (
+                <PostRow
+                  key={post.id}
+                  post={post}
+                  isSelected={selectedPost?.id === post.id}
+                  onSelect={selectPost}
+                  onTransition={handleTransition}
+                />
+              ))}
               {filtered.length === 0 && (
                 <tr><td colSpan={6} style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
                   {filterStatus === "all" ? "No posts yet." : `No ${filterStatus} posts`}
@@ -580,8 +709,23 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
         </div>
       </div>
 
-      {/* Edit panel */}
-      {editDraft && <EditPanel />}
+      {/* Edit panel — rendered conditionally but component type is stable */}
+      {editDraft && (
+        <EditPanel
+          editDraft={editDraft}
+          isNew={isNew}
+          saving={saving}
+          saveMsg={saveMsg}
+          selectedPost={selectedPost}
+          onFieldChange={handleFieldChange}
+          onTitleChange={handleTitleChange}
+          onClose={handleClose}
+          onSave={handleSave}
+          onPublish={handlePublish}
+          onUploadHero={handleUploadHero}
+          uploadingHero={uploadingHero}
+        />
+      )}
     </div>
   );
 }
