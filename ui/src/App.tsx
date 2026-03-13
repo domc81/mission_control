@@ -591,6 +591,16 @@ function ConversationItem({
 }
 
 // ---------------------------------------------------------------------------
+// LeadsCRMWrapper — injects authenticated session token so RLS SELECT works
+// ---------------------------------------------------------------------------
+function LeadsCRMWrapper({ supabaseUrl }: { supabaseUrl: string }) {
+  const { session } = useAuth();
+  const authToken = session?.access_token ?? "";
+  if (!authToken) return <div style={{ padding: "40px", color: "#9ca3af", textAlign: "center" }}>Not authenticated</div>;
+  return <LeadsCRM supabaseUrl={supabaseUrl} supabaseKey={authToken} />;
+}
+
+// ---------------------------------------------------------------------------
 // Content Section — Queue + Schedule tabs
 // ---------------------------------------------------------------------------
 function ContentSection({ supabaseUrl, supabaseKey }: { supabaseUrl: string; supabaseKey: string }) {
@@ -839,7 +849,7 @@ function AppDashboard() {
           {/* ── LEADS CRM ── */}
           {activeNav === "leads" && (
             <div style={{ height: "calc(100vh - 120px)", overflow: "hidden" }}>
-              <LeadsCRM supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+              <LeadsCRMWrapper supabaseUrl={SUPABASE_URL} />
             </div>
           )}
 
