@@ -184,6 +184,12 @@ export function LeadsCRM({ supabaseUrl, supabaseKey, authToken }: Props) {
   };
 
   // ---------------------------------------------------------------------------
+  // Drag state (must be declared before handlers and before any early return)
+  // ---------------------------------------------------------------------------
+  const dragLeadId = useRef<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<PipelineStage | null>(null);
+
+  // ---------------------------------------------------------------------------
   // Drag handlers
   // ---------------------------------------------------------------------------
   const handleDragStart = useCallback((e: React.DragEvent, leadId: string) => {
@@ -407,10 +413,6 @@ export function LeadsCRM({ supabaseUrl, supabaseKey, authToken }: Props) {
       </div>
     );
   };
-
-    // Drag state — tracked in a ref to avoid re-renders while dragging
-  const dragLeadId = useRef<string | null>(null);
-  const [dragOverStage, setDragOverStage] = useState<PipelineStage | null>(null);
 
   // ---------------------------------------------------------------------------
   // Main render
