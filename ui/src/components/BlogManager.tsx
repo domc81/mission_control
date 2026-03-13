@@ -253,7 +253,7 @@ function EditPanel({
               border: "1px solid #374151", background: "#111827", color: "#9ca3af",
               opacity: uploadingHero ? 0.5 : 1,
             }}>
-              {uploadingHero ? "Uploading…" : "📁 Upload image"}
+              {uploadingHero ? "Resizing & uploading…" : "📁 Upload image"}
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif"
@@ -262,13 +262,16 @@ function EditPanel({
                 onChange={e => { if (e.target.files?.[0]) onUploadHero(e.target.files[0]); }}
               />
             </label>
-            {heroIsImage && (
+            {heroIsImage && !uploadingHero && (
               <span style={{ fontSize: "10px", color: "#22c55e" }}>✓ Image set</span>
             )}
             {editDraft.hero_icon && knownIcons.includes(editDraft.hero_icon) && (
               <span style={{ fontSize: "10px", color: "#9ca3af" }}>Using icon: {editDraft.hero_icon}</span>
             )}
           </div>
+          <p style={{ fontSize: "10px", color: "#4b5563", marginTop: "4px" }}>
+            Auto-resized to 1200px wide · WebP 80% · stored in blog-assets
+          </p>
         </div>
 
         {/* Excerpt */}
@@ -532,31 +535,57 @@ export function BlogManager({ supabaseUrl, supabaseKey, authToken }: Props) {
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Hero image upload
+  // Hero image upload — resize to 1200px wide, convert to WebP 80% client-side
   // ---------------------------------------------------------------------------
   const handleUploadHero = useCallback(async (file: File) => {
     setUploadingHero(true);
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const filename = `blog-hero-${Date.now()}.${ext}`;
-      // Read credentials for upload (use service role via authToken as authenticated user)
+      // 1. Draw onto canvas at 1200px width, preserve aspect ratio
+      const bitmap = await createImageBitmap(file);
+      const TARGET_WIDTH = 1200;
+      const scale = TARGET_WIDTH / bitmap.width;
+      const targetHeight = Math.round(bitmap.height * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = TARGET_WIDTH;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(bitmap, 0, 0, TARGET_WIDTH, targetHeight);
+      bitmap.close();
+
+      // 2. Export as WebP at 80% quality
+      const webpBlob: Blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          blob => blob ? resolve(blob) : reject(new Error("Canvas toBlob failed")),
+          "image/webp",
+          0.8
+        );
+      });
+
+      // 3. Upload to blog-assets bucket
+      const filename = `hero-${Date.now()}.webp`;
       const uploadRes = await fetch(
-        `${supabaseUrl}/storage/v1/object/social-media-assets/${filename}`,
+        `${supabaseUrl}/storage/v1/object/blog-assets/${filename}`,
         {
           method: "POST",
           headers: {
             apikey: supabaseKey,
             Authorization: `Bearer ${authToken}`,
-            "Content-Type": file.type,
+            "Content-Type": "image/webp",
           },
-          body: file,
+          body: webpBlob,
         }
       );
-      if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
-      const publicUrl = `${supabaseUrl}/storage/v1/object/public/social-media-assets/${filename}`;
+      if (!uploadRes.ok) {
+        const err = await uploadRes.text();
+        throw new Error(`Upload failed ${uploadRes.status}: ${err}`);
+      }
+
+      const publicUrl = `${supabaseUrl}/storage/v1/object/public/blog-assets/${filename}`;
       setEditDraft(prev => prev ? { ...prev, hero_icon: publicUrl } : prev);
     } catch (e) {
       console.error("Hero upload failed:", e);
+      alert(`Upload failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setUploadingHero(false);
     }
