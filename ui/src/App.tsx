@@ -7,6 +7,7 @@ import { ContentPipeline, usePendingCount } from "./components/ContentPipeline";
 import { ContentTimeline } from "./components/ContentTimeline";
 import { LeadsCRM } from "./components/LeadsCRM";
 import { AuditsSection } from "./components/AuditsSection";
+import { BlogManager } from "./components/BlogManager";
 import { CostTracking } from "./components/CostTracking";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LoginPage } from "./components/auth/LoginPage";
@@ -15,7 +16,7 @@ import { LogoutButton } from "./components/auth/LogoutButton";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-type NavSection = "overview" | "content" | "leads" | "audits" | "tasks" | "agents" | "costs" | "docs" | "audit";
+type NavSection = "overview" | "content" | "leads" | "audits" | "blog" | "tasks" | "agents" | "costs" | "docs" | "audit";
 
 type Agent = {
   _id: string;
@@ -594,6 +595,13 @@ function ConversationItem({
 // ---------------------------------------------------------------------------
 // LeadsCRMWrapper — injects authenticated session token so RLS SELECT works
 // ---------------------------------------------------------------------------
+function BlogManagerWrapper({ supabaseUrl, supabaseKey }: { supabaseUrl: string; supabaseKey: string }) {
+  const { session } = useAuth();
+  const authToken = session?.access_token ?? "";
+  if (!authToken) return <div style={{ padding: "40px", color: "#9ca3af", textAlign: "center" }}>Not authenticated</div>;
+  return <BlogManager supabaseUrl={supabaseUrl} supabaseKey={supabaseKey} authToken={authToken} />;
+}
+
 function AuditsSectionWrapper({ supabaseUrl, supabaseKey }: { supabaseUrl: string; supabaseKey: string }) {
   const { session } = useAuth();
   const authToken = session?.access_token ?? "";
@@ -723,6 +731,7 @@ function AppDashboard() {
     { id: "content",  label: "Content",   emoji: "📣", badge: pendingApprovalCount },
     { id: "leads",    label: "Leads",     emoji: "🎯" },
     { id: "audits",   label: "Audits",    emoji: "🔬" },
+    { id: "blog",     label: "Blog",      emoji: "✍️" },
     { id: "tasks",    label: "Tasks",     emoji: "📋", badge: (dashboard?.tasks.in_progress ?? 0) + (dashboard?.tasks.review ?? 0) },
     { id: "agents",   label: "Agents",    emoji: "🤖" },
     { id: "costs",    label: "Costs",     emoji: "💰" },
@@ -867,6 +876,13 @@ function AppDashboard() {
           {activeNav === "audits" && (
             <div style={{ height: "calc(100vh - 120px)", overflow: "hidden" }}>
               <AuditsSectionWrapper supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+            </div>
+          )}
+
+          {/* ── BLOG MANAGER ── */}
+          {activeNav === "blog" && (
+            <div style={{ height: "calc(100vh - 120px)", overflow: "hidden" }}>
+              <BlogManagerWrapper supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
             </div>
           )}
 
