@@ -9,6 +9,7 @@ import { LeadsCRM } from "./components/LeadsCRM";
 import { AuditsSection } from "./components/AuditsSection";
 import { BlogManager } from "./components/BlogManager";
 import { ContentCalendar } from "./components/ContentCalendar";
+import { ContentCalendar } from "./components/ContentCalendar";
 import { CostTracking } from "./components/CostTracking";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LoginPage } from "./components/auth/LoginPage";
@@ -17,7 +18,7 @@ import { LogoutButton } from "./components/auth/LogoutButton";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-type NavSection = "overview" | "content" | "calendar" | "leads" | "audits" | "blog" | "tasks" | "agents" | "costs" | "docs" | "audit";
+type NavSection = "overview" | "content" | "leads" | "audits" | "blog" | "calendar" | "tasks" | "agents" | "costs" | "docs" | "audit";
 
 type Agent = {
   _id: string;
@@ -594,7 +595,7 @@ function ConversationItem({
 }
 
 // ---------------------------------------------------------------------------
-// LeadsCRMWrapper — injects authenticated session token so RLS SELECT works
+// ContentCalendarWrapper
 // ---------------------------------------------------------------------------
 function ContentCalendarWrapper({ supabaseUrl, supabaseKey }: { supabaseUrl: string; supabaseKey: string }) {
   const { session } = useAuth();
@@ -737,10 +738,10 @@ function AppDashboard() {
   const navItems: { id: NavSection; label: string; emoji: string; badge?: number }[] = [
     { id: "overview", label: "Overview",  emoji: "🎯" },
     { id: "content",  label: "Content",   emoji: "📣", badge: pendingApprovalCount },
-    { id: "calendar", label: "Calendar",  emoji: "📅" },
     { id: "leads",    label: "Leads",     emoji: "🎯" },
     { id: "audits",   label: "Audits",    emoji: "🔬" },
     { id: "blog",     label: "Blog",      emoji: "✍️" },
+    { id: "calendar", label: "Calendar",  emoji: "📅" },
     { id: "tasks",    label: "Tasks",     emoji: "📋", badge: (dashboard?.tasks.in_progress ?? 0) + (dashboard?.tasks.review ?? 0) },
     { id: "agents",   label: "Agents",    emoji: "🤖" },
     { id: "costs",    label: "Costs",     emoji: "💰" },

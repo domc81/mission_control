@@ -1,13 +1,13 @@
 /**
  * ContentCalendar.tsx — Phase 7
  *
- * Monthly/weekly content calendar for social_posts.
- * - Monthly grid: each day cell shows platform colour dots + post count
- * - Weekly strip: 7-day view with full post cards per day
- * - Click a day → day detail panel (all posts for that day)
- * - 5-3-2 mix indicator for the visible period
- * - Platform colour coding throughout
- * - Reads from Supabase social_posts via authenticated session
+ * Weekly / monthly content calendar for social_posts.
+ * - Toggle between week and month view
+ * - Platform colour coding
+ * - Click any day → post list panel on the right
+ * - 5-3-2 content mix tracker (rolling 10-post window)
+ * - "Today" button, prev/next navigation
+ * - Posts pulled from Supabase social_posts, refreshed every 30s
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -15,7 +15,7 @@ import { useState, useEffect, useCallback } from "react";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type PostStatus = "pending_approval" | "approved" | "scheduled" | "posted" | "rejected" | "failed";
+type PostStatus = "pending_approval" | "approved" | "posted" | "rejected" | "scheduled";
 
 type SocialPost = {
   id: string;
@@ -25,68 +25,54 @@ type SocialPost = {
   scheduled_for: string | null;
   posted_at: string | null;
   created_at: string;
-  media_urls: string[] | null;
 };
 
 type Props = {
   supabaseUrl: string;
-  supabaseKey: string;
-  authToken: string;
+  supabaseKey: string;  // anon key
+  authToken: string;    // session JWT
 };
 
 // ---------------------------------------------------------------------------
-// Platform config
+// Platform colours
 // ---------------------------------------------------------------------------
-const PLATFORM_CFG: Record<string, { colour: string; label: string; abbr: string }> = {
-  x:         { colour: "#1a1a1a", label: "X",         abbr: "X"  },
-  linkedin:  { colour: "#0077b5", label: "LinkedIn",  abbr: "Li" },
-  instagram: { colour: "#e1306c", label: "Instagram", abbr: "IG" },
-  facebook:  { colour: "#1877f2", label: "Facebook",  abbr: "Fb" },
-  tiktok:    { colour: "#010101", label: "TikTok",    abbr: "Tt" },
-};
-const platformColour = (p: string) => PLATFORM_CFG[p]?.colour ?? "#6b7280";
-const platformLabel  = (p: string) => PLATFORM_CFG[p]?.label  ?? p;
-const platformAbbr   = (p: string) => PLATFORM_CFG[p]?.abbr   ?? p.slice(0,2).toUpperCase();
-
-const STATUS_STYLE: Record<string, { dot: string; label: string }> = {
-  posted:           { dot: "#22c55e", label: "Posted"   },
-  scheduled:        { dot: "#3b82f6", label: "Scheduled" },
-  pending_approval: { dot: "#f59e0b", label: "Pending"  },
-  approved:         { dot: "#a78bfa", label: "Approved" },
-  rejected:         { dot: "#ef4444", label: "Rejected" },
-  failed:           { dot: "#ef4444", label: "Failed"   },
+const PLATFORM_COLOUR: Record<string, { bg: string; text: string; dot: string }> = {
+  x:         { bg: "rgba(0,0,0,0.8)",          text: "#fff",    dot: "#e7e9ea" },
+  twitter:   { bg: "rgba(0,0,0,0.8)",          text: "#fff",    dot: "#e7e9ea" },
+  linkedin:  { bg: "rgba(10,102,194,0.85)",     text: "#fff",    dot: "#0a66c2" },
+  instagram: { bg: "rgba(193,53,132,0.85)",     text: "#fff",    dot: "#c13584" },
+  facebook:  { bg: "rgba(24,119,242,0.85)",     text: "#fff",    dot: "#1877f2" },
+  tiktok:    { bg: "rgba(0,0,0,0.8)",          text: "#fff",    dot: "#69c9d0" },
 };
 
-// 5-3-2 labels (classify by content type heuristic — we use platform as proxy)
-// Real classification would need a content_type column; for now show platform mix
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const platformColour = (p: string) =>
+  PLATFORM_COLOUR[p.toLowerCase()] ?? { bg: "rgba(107,114,128,0.8)", text: "#fff", dot: "#6b7280" };
+
+const STATUS_COLOUR: Record<string, string> = {
+  posted:           "#22c55e",
+  approved:         "#3b82f6",
+  scheduled:        "#8b5cf6",
+  pending_approval: "#f59e0b",
+  rejected:         "#ef4444",
+};
 
 // ---------------------------------------------------------------------------
-// Date helpers (all module-level, stable)
+// Helpers
 // ---------------------------------------------------------------------------
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function parseDate(s: string | null): Date | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
+function startOfWeek(d: Date): Date {
+  const day = d.getDay(); // 0=Sun
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - ((day + 6) % 7)); // Monday-based
+  monday.setHours(0, 0, 0, 0);
+  return monday;
 }
 
-function effectiveDate(post: SocialPost): string | null {
-  return isoDate(parseDate(post.posted_at) ?? parseDate(post.scheduled_for) ?? new Date(post.created_at));
-}
-
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
-}
-
-/** Monday = 0 … Sunday = 6 */
-function dayOfWeek(year: number, month: number, day: number): number {
-  const d = new Date(year, month, day).getDay(); // 0=Sun
-  return (d + 6) % 7; // shift so Mon=0
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
 function addDays(d: Date, n: number): Date {
@@ -95,28 +81,137 @@ function addDays(d: Date, n: number): Date {
   return r;
 }
 
-function startOfWeek(d: Date): Date {
-  const dow = (d.getDay() + 6) % 7;
-  return addDays(d, -dow);
+function formatMonthYear(d: Date): string {
+  return d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 }
 
-function formatDisplayDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+function formatWeekRange(start: Date): string {
+  const end = addDays(start, 6);
+  const s = start.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const e = end.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return `${s} – ${e}`;
+}
+
+function dayLabel(d: Date): string {
+  return d.toLocaleDateString("en-GB", { weekday: "short" });
+}
+
+function dateNum(d: Date): number {
+  return d.getDate();
+}
+
+/** Return the date key (YYYY-MM-DD) for a post */
+function postDateKey(post: SocialPost): string | null {
+  const ts = post.posted_at ?? post.scheduled_for ?? post.created_at;
+  if (!ts) return null;
+  return ts.slice(0, 10);
 }
 
 // ---------------------------------------------------------------------------
-// ContentCalendar
+// 5-3-2 Mix analysis — rolling last 10 posts
+// ---------------------------------------------------------------------------
+type MixCategory = "curated" | "original" | "personal" | "unknown";
+
+function classifyPost(_post: SocialPost): MixCategory {
+  // Heuristic: in a real system you'd store this. For now, tag by content patterns.
+  // Posts created by Loki (long copy, no "RT" equivalent) = original
+  // Posts with a URL that isn't dc81.io = curated
+  // Real system: add a `content_type` column to social_posts
+  return "original"; // Default until content_type column exists
+}
+
+type MixCount = { curated: number; original: number; personal: number; total: number };
+
+function computeMix(posts: SocialPost[]): MixCount {
+  const last10 = [...posts]
+    .sort((a, b) => (b.posted_at ?? b.created_at) > (a.posted_at ?? a.created_at) ? 1 : -1)
+    .slice(0, 10);
+  const mix: MixCount = { curated: 0, original: 0, personal: 0, total: last10.length };
+  last10.forEach(p => {
+    const cat = classifyPost(p);
+    if (cat !== "unknown") mix[cat]++;
+  });
+  return mix;
+}
+
+// ---------------------------------------------------------------------------
+// DayCell — single day in the calendar grid
+// ---------------------------------------------------------------------------
+type DayCellProps = {
+  date: Date;
+  posts: SocialPost[];
+  isToday: boolean;
+  isCurrentMonth: boolean;
+  isSelected: boolean;
+  compact: boolean;
+  onClick: (date: Date) => void;
+};
+
+function DayCell({ date, posts, isToday, isCurrentMonth, isSelected, compact, onClick }: DayCellProps) {
+  const MAX_DOTS = compact ? 3 : 4;
+  const visible = posts.slice(0, MAX_DOTS);
+  const overflow = posts.length - MAX_DOTS;
+
+  return (
+    <div
+      onClick={() => onClick(date)}
+      style={{
+        minHeight: compact ? "52px" : "80px",
+        padding: "6px",
+        borderRadius: "6px",
+        cursor: "pointer",
+        background: isSelected ? "rgba(0,212,255,0.08)" : "transparent",
+        border: `1px solid ${isSelected ? "rgba(0,212,255,0.3)" : isToday ? "rgba(0,212,255,0.2)" : "#1f2937"}`,
+        opacity: isCurrentMonth ? 1 : 0.35,
+        transition: "background 0.12s, border-color 0.12s",
+        position: "relative",
+      }}
+    >
+      {/* Date number */}
+      <div style={{
+        fontSize: "11px", fontWeight: isToday ? 700 : 400,
+        color: isToday ? "#00d4ff" : isCurrentMonth ? "#d1d5db" : "#4b5563",
+        marginBottom: "4px", lineHeight: 1,
+      }}>
+        {isToday ? (
+          <span style={{ background: "#00d4ff", color: "#000", borderRadius: "50%", width: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontWeight: 700 }}>
+            {dateNum(date)}
+          </span>
+        ) : dateNum(date)}
+      </div>
+
+      {/* Post dots / pills */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+        {visible.map(post => {
+          const col = platformColour(post.platform);
+          return (
+            <div key={post.id} style={{
+              fontSize: "9px", padding: "1px 4px", borderRadius: "3px",
+              background: col.bg, color: col.text,
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              maxWidth: "100%", lineHeight: "14px",
+            }}>
+              {post.platform.charAt(0).toUpperCase() + post.platform.slice(1, compact ? 2 : 4)}
+            </div>
+          );
+        })}
+        {overflow > 0 && (
+          <div style={{ fontSize: "9px", color: "#6b7280", lineHeight: "13px" }}>+{overflow} more</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
 // ---------------------------------------------------------------------------
 export function ContentCalendar({ supabaseUrl, supabaseKey, authToken }: Props) {
-  const today = new Date();
-  const [viewMode, setViewMode] = useState<"month" | "week">("month");
-  const [currentYear, setCurrentYear] = useState(today.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-  const [weekStart, setWeekStart] = useState<Date>(startOfWeek(today));
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"week" | "month">("month");
+  const [cursor, setCursor] = useState(() => new Date()); // anchor date for current view
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => isoDate(new Date()));
 
   const headers = {
     apikey: supabaseKey,
@@ -125,330 +220,101 @@ export function ContentCalendar({ supabaseUrl, supabaseKey, authToken }: Props) 
   };
 
   // ---------------------------------------------------------------------------
-  // Fetch posts for visible date range (±2 months for smooth nav)
+  // Fetch all posts (no date filter — calendar needs full range for navigation)
   // ---------------------------------------------------------------------------
   const fetchPosts = useCallback(async () => {
     try {
       const r = await fetch(
-        `${supabaseUrl}/rest/v1/social_posts?select=id,platform,content,status,scheduled_for,posted_at,created_at,media_urls&order=created_at.desc&limit=500`,
+        `${supabaseUrl}/rest/v1/social_posts?select=id,platform,content,status,scheduled_for,posted_at,created_at&order=created_at.desc&limit=500`,
         { headers }
       );
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       setPosts(await r.json());
     } catch (e) {
-      console.error("Calendar fetch:", e);
+      console.error("ContentCalendar fetch:", e);
     } finally {
       setLoading(false);
     }
   }, [supabaseUrl, authToken]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
+  useEffect(() => {
+    const t = setInterval(fetchPosts, 30_000);
+    return () => clearInterval(t);
+  }, [fetchPosts]);
 
   // ---------------------------------------------------------------------------
-  // Build day → posts map
+  // Build posts-by-date index
   // ---------------------------------------------------------------------------
-  const postsByDay = useCallback(() => {
-    const map: Record<string, SocialPost[]> = {};
-    posts.forEach(p => {
-      const d = effectiveDate(p);
-      if (!d) return;
-      if (!map[d]) map[d] = [];
-      map[d].push(p);
-    });
-    return map;
-  }, [posts]);
+  const byDate: Record<string, SocialPost[]> = {};
+  posts.forEach(post => {
+    const key = postDateKey(post);
+    if (!key) return;
+    if (!byDate[key]) byDate[key] = [];
+    byDate[key].push(post);
+  });
 
-  const dayMap = postsByDay();
+  const postsForDate = (key: string) => byDate[key] ?? [];
 
   // ---------------------------------------------------------------------------
-  // 5-3-2 mix for visible period
+  // Build calendar grid days
   // ---------------------------------------------------------------------------
-  const mixStats = useCallback((visiblePosts: SocialPost[]) => {
-    // Approximate: posted = curated/original, pending/scheduled = upcoming
-    const total = visiblePosts.length;
-    const byPlatform: Record<string, number> = {};
-    visiblePosts.forEach(p => { byPlatform[p.platform] = (byPlatform[p.platform] ?? 0) + 1; });
-    const posted = visiblePosts.filter(p => p.status === "posted").length;
-    const scheduled = visiblePosts.filter(p => p.status === "scheduled").length;
-    const pending = visiblePosts.filter(p => p.status === "pending_approval").length;
-    return { total, posted, scheduled, pending, byPlatform };
-  }, []);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let gridDays: Date[] = [];
+  let headerLabel = "";
+
+  if (viewMode === "week") {
+    const mon = startOfWeek(cursor);
+    gridDays = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
+    headerLabel = formatWeekRange(mon);
+  } else {
+    // Month: fill complete weeks (Mon–Sun grid)
+    const first = startOfMonth(cursor);
+    const last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+    const startPad = startOfWeek(first);
+    // End on the Sunday of the last week
+    const endSun = addDays(startOfWeek(last), 6);
+    let d = new Date(startPad);
+    while (d <= endSun) {
+      gridDays.push(new Date(d));
+      d = addDays(d, 1);
+    }
+    headerLabel = formatMonthYear(cursor);
+  }
 
   // ---------------------------------------------------------------------------
   // Navigation
   // ---------------------------------------------------------------------------
-  const prevMonth = () => {
-    if (currentMonth === 0) { setCurrentYear(y => y - 1); setCurrentMonth(11); }
-    else setCurrentMonth(m => m - 1);
+  const navigate = (dir: -1 | 1) => {
+    const next = new Date(cursor);
+    if (viewMode === "week") {
+      next.setDate(next.getDate() + dir * 7);
+    } else {
+      next.setMonth(next.getMonth() + dir);
+    }
+    setCursor(next);
   };
-  const nextMonth = () => {
-    if (currentMonth === 11) { setCurrentYear(y => y + 1); setCurrentMonth(0); }
-    else setCurrentMonth(m => m + 1);
-  };
-  const prevWeek = () => setWeekStart(d => addDays(d, -7));
-  const nextWeek = () => setWeekStart(d => addDays(d, 7));
-  const goToday  = () => {
-    setCurrentYear(today.getFullYear());
-    setCurrentMonth(today.getMonth());
-    setWeekStart(startOfWeek(today));
-    setSelectedDay(isoDate(today));
+
+  const goToday = () => {
+    setCursor(new Date());
+    setSelectedDate(isoDate(new Date()));
   };
 
   // ---------------------------------------------------------------------------
-  // Day detail panel
+  // Selected day posts
   // ---------------------------------------------------------------------------
-  const DayPanel = () => {
-    if (!selectedDay) return null;
-    const dayPosts = dayMap[selectedDay] ?? [];
-    return (
-      <div style={{
-        width: "320px", flexShrink: 0, borderLeft: "1px solid #1f2937",
-        background: "#0d1117", overflowY: "auto", display: "flex", flexDirection: "column",
-      }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1f2937", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <p style={{ margin: 0, fontSize: "11px", color: "#6b7280" }}>Selected day</p>
-            <p style={{ margin: "2px 0 0", fontSize: "14px", fontWeight: 700, color: "#f9fafb" }}>{formatDisplayDate(selectedDay)}</p>
-          </div>
-          <button onClick={() => setSelectedDay(null)} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: "16px" }}>✕</button>
-        </div>
-
-        {dayPosts.length === 0 ? (
-          <p style={{ padding: "20px", fontSize: "13px", color: "#6b7280" }}>No posts on this day.</p>
-        ) : (
-          <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            {dayPosts.map(post => {
-              const col = platformColour(post.platform);
-              const st = STATUS_STYLE[post.status] ?? { dot: "#6b7280", label: post.status };
-              return (
-                <div key={post.id} style={{ background: "#111827", border: `1px solid ${col}30`, borderLeft: `3px solid ${col}`, borderRadius: "8px", padding: "10px 12px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: col, background: `${col}20`, padding: "2px 8px", borderRadius: "6px" }}>
-                      {platformLabel(post.platform)}
-                    </span>
-                    <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: st.dot }}>
-                      <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: st.dot }} />
-                      {st.label}
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: "12px", color: "#d1d5db", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                    {post.content}
-                  </p>
-                  {post.media_urls && post.media_urls.length > 0 && (
-                    <p style={{ margin: "6px 0 0", fontSize: "10px", color: "#6b7280" }}>📎 {post.media_urls.length} attachment{post.media_urls.length > 1 ? "s" : ""}</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const selectedPosts = selectedDate ? postsForDate(selectedDate) : [];
 
   // ---------------------------------------------------------------------------
-  // Month grid
+  // 5-3-2 Mix
   // ---------------------------------------------------------------------------
-  const MonthView = () => {
-    const numDays = daysInMonth(currentYear, currentMonth);
-    const firstDow = dayOfWeek(currentYear, currentMonth, 1); // 0=Mon
-    const todayStr = isoDate(today);
-
-    // Visible posts this month for mix stats
-    const monthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
-    const monthPosts = posts.filter(p => (effectiveDate(p) ?? "").startsWith(monthPrefix));
-    const mix = mixStats(monthPosts);
-
-    return (
-      <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
-        {/* Mix stats */}
-        <div style={{ display: "flex", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
-          <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-            <span style={{ fontWeight: 700, color: "#f9fafb" }}>{mix.total}</span> posts this month ·{" "}
-            <span style={{ color: "#22c55e" }}>{mix.posted} posted</span> ·{" "}
-            <span style={{ color: "#3b82f6" }}>{mix.scheduled} scheduled</span> ·{" "}
-            <span style={{ color: "#f59e0b" }}>{mix.pending} pending</span>
-          </div>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            {Object.entries(mix.byPlatform).map(([p, n]) => (
-              <span key={p} style={{ fontSize: "11px", padding: "1px 8px", borderRadius: "8px", background: `${platformColour(p)}20`, color: platformColour(p), border: `1px solid ${platformColour(p)}40` }}>
-                {platformLabel(p)}: {n}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Day headers */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px", marginBottom: "2px" }}>
-          {DAYS.map(d => (
-            <div key={d} style={{ textAlign: "center", fontSize: "11px", color: "#6b7280", padding: "4px 0", fontWeight: 600 }}>{d}</div>
-          ))}
-        </div>
-
-        {/* Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
-          {/* Leading empty cells */}
-          {Array.from({ length: firstDow }).map((_, i) => (
-            <div key={`empty-${i}`} style={{ minHeight: "72px", borderRadius: "6px", background: "#0a0f18" }} />
-          ))}
-
-          {/* Day cells */}
-          {Array.from({ length: numDays }, (_, i) => i + 1).map(day => {
-            const iso = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            const dayPosts = dayMap[iso] ?? [];
-            const isToday = iso === todayStr;
-            const isSelected = iso === selectedDay;
-            const platforms = [...new Set(dayPosts.map(p => p.platform))];
-
-            return (
-              <div
-                key={iso}
-                onClick={() => setSelectedDay(iso === selectedDay ? null : iso)}
-                style={{
-                  minHeight: "72px", borderRadius: "6px", padding: "6px",
-                  background: isSelected ? "#1a2236" : isToday ? "#111827" : "#0d1117",
-                  border: `1px solid ${isSelected ? "#00d4ff" : isToday ? "#374151" : "#1f2937"}`,
-                  cursor: "pointer", position: "relative",
-                  transition: "border-color 0.15s",
-                }}
-              >
-                <p style={{
-                  margin: "0 0 4px", fontSize: "12px", fontWeight: isToday ? 700 : 400,
-                  color: isToday ? "#00d4ff" : "#9ca3af",
-                }}>
-                  {day}
-                </p>
-
-                {/* Platform dots */}
-                {platforms.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "2px" }}>
-                    {platforms.map(p => {
-                      const count = dayPosts.filter(post => post.platform === p).length;
-                      return (
-                        <span key={p} title={`${platformLabel(p)} (${count})`} style={{
-                          fontSize: "9px", fontWeight: 700, padding: "1px 5px", borderRadius: "4px",
-                          background: `${platformColour(p)}25`, color: platformColour(p),
-                          border: `1px solid ${platformColour(p)}40`,
-                        }}>
-                          {platformAbbr(p)}{count > 1 ? ` ×${count}` : ""}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Status indicator row — tiny dots */}
-                {dayPosts.length > 0 && (
-                  <div style={{ display: "flex", gap: "3px", marginTop: "4px", flexWrap: "wrap" }}>
-                    {dayPosts.map(p => (
-                      <span key={p.id} style={{
-                        width: "5px", height: "5px", borderRadius: "50%",
-                        background: STATUS_STYLE[p.status]?.dot ?? "#6b7280",
-                        display: "inline-block",
-                      }} title={STATUS_STYLE[p.status]?.label ?? p.status} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
+  const postedPosts = posts.filter(p => p.status === "posted");
+  const mix = computeMix(postedPosts);
 
   // ---------------------------------------------------------------------------
-  // Week strip
-  // ---------------------------------------------------------------------------
-  const WeekView = () => {
-    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-    const todayStr = isoDate(today);
-
-    // Visible posts this week for mix stats
-    const weekPosts = days.flatMap(d => dayMap[isoDate(d)] ?? []);
-    const mix = mixStats(weekPosts);
-
-    return (
-      <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
-        {/* Mix stats */}
-        <div style={{ display: "flex", gap: "12px", marginBottom: "16px", flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-            <span style={{ fontWeight: 700, color: "#f9fafb" }}>{mix.total}</span> posts this week ·{" "}
-            <span style={{ color: "#22c55e" }}>{mix.posted} posted</span> ·{" "}
-            <span style={{ color: "#3b82f6" }}>{mix.scheduled} scheduled</span> ·{" "}
-            <span style={{ color: "#f59e0b" }}>{mix.pending} pending</span>
-          </div>
-          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-            {Object.entries(mix.byPlatform).map(([p, n]) => (
-              <span key={p} style={{ fontSize: "11px", padding: "1px 8px", borderRadius: "8px", background: `${platformColour(p)}20`, color: platformColour(p), border: `1px solid ${platformColour(p)}40` }}>
-                {platformLabel(p)}: {n}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* 7-day columns */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px" }}>
-          {days.map(d => {
-            const iso = isoDate(d);
-            const dayPosts = dayMap[iso] ?? [];
-            const isToday = iso === todayStr;
-            const isSelected = iso === selectedDay;
-
-            return (
-              <div key={iso} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {/* Day header */}
-                <div
-                  onClick={() => setSelectedDay(iso === selectedDay ? null : iso)}
-                  style={{
-                    textAlign: "center", padding: "6px 4px", borderRadius: "6px", cursor: "pointer",
-                    background: isSelected ? "#1a2236" : isToday ? "rgba(0,212,255,0.1)" : "#111827",
-                    border: `1px solid ${isSelected ? "#00d4ff" : isToday ? "rgba(0,212,255,0.3)" : "#1f2937"}`,
-                  }}
-                >
-                  <p style={{ margin: 0, fontSize: "10px", color: "#6b7280" }}>{DAYS[(d.getDay() + 6) % 7]}</p>
-                  <p style={{ margin: "2px 0 0", fontSize: "14px", fontWeight: 700, color: isToday ? "#00d4ff" : "#f9fafb" }}>
-                    {d.getDate()}
-                  </p>
-                  <p style={{ margin: 0, fontSize: "9px", color: "#4b5563" }}>{MONTHS[d.getMonth()].slice(0, 3)}</p>
-                </div>
-
-                {/* Post cards */}
-                {dayPosts.map(post => {
-                  const col = platformColour(post.platform);
-                  const st = STATUS_STYLE[post.status] ?? { dot: "#6b7280", label: post.status };
-                  return (
-                    <div key={post.id} style={{
-                      background: "#111827", borderLeft: `3px solid ${col}`,
-                      border: `1px solid ${col}25`, borderRadius: "6px", padding: "6px 8px",
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                        <span style={{ fontSize: "9px", fontWeight: 700, color: col }}>{platformAbbr(post.platform)}</span>
-                        <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: st.dot }} title={st.label} />
-                      </div>
-                      <p style={{
-                        margin: 0, fontSize: "10px", color: "#9ca3af", lineHeight: 1.4,
-                        display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
-                      }}>
-                        {post.content}
-                      </p>
-                    </div>
-                  );
-                })}
-
-                {dayPosts.length === 0 && (
-                  <div style={{ borderRadius: "6px", border: "1px dashed #1f2937", minHeight: "40px" }} />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  // ---------------------------------------------------------------------------
-  // Main render
+  // Render
   // ---------------------------------------------------------------------------
   if (loading) {
     return (
@@ -458,62 +324,174 @@ export function ContentCalendar({ supabaseUrl, supabaseKey, authToken }: Props) 
     );
   }
 
-  const weekEnd = addDays(weekStart, 6);
+  const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const cols = viewMode === "week" ? 7 : 7;
+  const compact = viewMode === "month";
 
   return (
     <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
-      {/* Main */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Main calendar */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+
         {/* Toolbar */}
         <div style={{ padding: "14px 20px", borderBottom: "1px solid #1f2937", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          {/* Nav */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button onClick={() => navigate(-1)} style={{ padding: "5px 10px", fontSize: "14px", borderRadius: "6px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", cursor: "pointer" }}>‹</button>
+            <button onClick={() => navigate(1)}  style={{ padding: "5px 10px", fontSize: "14px", borderRadius: "6px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", cursor: "pointer" }}>›</button>
+            <span style={{ fontSize: "15px", fontWeight: 600, color: "#f9fafb", minWidth: "180px" }}>{headerLabel}</span>
+            <button onClick={goToday} style={{ padding: "4px 10px", fontSize: "11px", borderRadius: "6px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", cursor: "pointer" }}>Today</button>
+          </div>
 
           {/* View toggle */}
-          <div style={{ display: "flex", gap: "4px" }}>
-            {(["month", "week"] as const).map(v => (
+          <div style={{ display: "flex", gap: "4px", marginLeft: "auto" }}>
+            {(["week", "month"] as const).map(v => (
               <button key={v} onClick={() => setViewMode(v)} style={{
-                padding: "5px 12px", fontSize: "12px", borderRadius: "6px", cursor: "pointer",
+                padding: "5px 12px", fontSize: "11px", borderRadius: "6px", cursor: "pointer",
                 border: `1px solid ${viewMode === v ? "#00d4ff" : "#374151"}`,
                 background: viewMode === v ? "rgba(0,212,255,0.1)" : "transparent",
                 color: viewMode === v ? "#00d4ff" : "#9ca3af",
+                textTransform: "capitalize",
               }}>
-                {v === "month" ? "📅 Month" : "📋 Week"}
+                {v}
               </button>
             ))}
+            <button onClick={fetchPosts} style={{ padding: "5px 10px", fontSize: "13px", borderRadius: "6px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", cursor: "pointer" }}>↻</button>
           </div>
+        </div>
 
-          {/* Navigation */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button onClick={viewMode === "month" ? prevMonth : prevWeek} style={{ padding: "4px 10px", fontSize: "14px", borderRadius: "6px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", cursor: "pointer" }}>‹</button>
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "#f9fafb", minWidth: "160px", textAlign: "center" }}>
-              {viewMode === "month"
-                ? `${MONTHS[currentMonth]} ${currentYear}`
-                : `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()].slice(0,3)} – ${weekEnd.getDate()} ${MONTHS[weekEnd.getMonth()].slice(0,3)} ${weekEnd.getFullYear()}`
-              }
-            </span>
-            <button onClick={viewMode === "month" ? nextMonth : nextWeek} style={{ padding: "4px 10px", fontSize: "14px", borderRadius: "6px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", cursor: "pointer" }}>›</button>
-          </div>
+        {/* 5-3-2 Mix bar */}
+        <div style={{ padding: "10px 20px", borderBottom: "1px solid #1f2937", display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "11px", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.08em" }}>5-3-2 Mix (last {mix.total})</span>
+          {[
+            { label: "Curated", target: 5, actual: mix.curated, colour: "#3b82f6" },
+            { label: "Original", target: 3, actual: mix.original, colour: "#8b5cf6" },
+            { label: "Personal", target: 2, actual: mix.personal, colour: "#22c55e" },
+          ].map(({ label, target, actual, colour }) => {
+            const pct = mix.total ? Math.round((actual / mix.total) * 100) : 0;
+            const targetPct = Math.round((target / 10) * 100);
+            const onTarget = Math.abs(pct - targetPct) <= 10;
+            return (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: colour, flexShrink: 0 }} />
+                <span style={{ fontSize: "11px", color: "#9ca3af" }}>{label}</span>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: onTarget ? colour : "#f59e0b" }}>{actual}</span>
+                <span style={{ fontSize: "10px", color: "#4b5563" }}>/ {target}</span>
+              </div>
+            );
+          })}
+          <span style={{ fontSize: "10px", color: "#4b5563", marginLeft: "auto" }}>
+            {postedPosts.length} posts published total
+          </span>
+        </div>
 
-          <button onClick={goToday} style={{ padding: "5px 12px", fontSize: "12px", borderRadius: "6px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", cursor: "pointer" }}>Today</button>
-
-          <button onClick={fetchPosts} style={{ padding: "5px 9px", fontSize: "13px", borderRadius: "6px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", cursor: "pointer" }}>↻</button>
-
-          {/* Platform legend */}
-          <div style={{ marginLeft: "auto", display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            {Object.entries(PLATFORM_CFG).map(([p, cfg]) => (
-              <span key={p} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: cfg.colour }}>
-                <span style={{ width: "8px", height: "8px", borderRadius: "2px", background: cfg.colour }} />
-                {cfg.label}
-              </span>
+        {/* Platform legend */}
+        <div style={{ padding: "8px 20px", borderBottom: "1px solid #1f2937", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          {Object.entries(PLATFORM_COLOUR).filter(([k]) => !["twitter"].includes(k)).map(([platform, col]) => (
+            <div key={platform} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "2px", background: col.dot }} />
+              <span style={{ fontSize: "10px", color: "#6b7280", textTransform: "capitalize" }}>{platform}</span>
+            </div>
+          ))}
+          {/* Status legend */}
+          <div style={{ marginLeft: "auto", display: "flex", gap: "10px" }}>
+            {Object.entries(STATUS_COLOUR).map(([s, c]) => (
+              <div key={s} style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: c }} />
+                <span style={{ fontSize: "10px", color: "#4b5563" }}>{s.replace("_", " ")}</span>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Calendar view */}
-        {viewMode === "month" ? <MonthView /> : <WeekView />}
+        {/* Calendar grid */}
+        <div style={{ flex: 1, overflow: "auto", padding: "12px 20px 20px" }}>
+          {/* Day headers */}
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: "4px", marginBottom: "4px" }}>
+            {WEEK_DAYS.map(d => (
+              <div key={d} style={{ fontSize: "10px", color: "#6b7280", textAlign: "center", padding: "4px 0", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {d}
+              </div>
+            ))}
+          </div>
+          {/* Day cells */}
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: "4px" }}>
+            {gridDays.map(day => {
+              const key = isoDate(day);
+              const dayPosts = postsForDate(key);
+              const isThisMonth = day.getMonth() === cursor.getMonth();
+              return (
+                <DayCell
+                  key={key}
+                  date={day}
+                  posts={dayPosts}
+                  isToday={isoDate(day) === isoDate(today)}
+                  isCurrentMonth={viewMode === "week" ? true : isThisMonth}
+                  isSelected={selectedDate === key}
+                  compact={compact}
+                  onClick={d => setSelectedDate(isoDate(d))}
+                />
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Day detail panel */}
-      <DayPanel />
+      <div style={{ width: "320px", flexShrink: 0, borderLeft: "1px solid #1f2937", background: "#0d1117", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1f2937" }}>
+          <p style={{ margin: 0, fontSize: "11px", color: "#6b7280" }}>
+            {selectedDate
+              ? new Date(selectedDate + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+              : "Select a day"}
+          </p>
+          <p style={{ margin: "4px 0 0", fontSize: "16px", fontWeight: 600, color: "#f9fafb" }}>
+            {selectedPosts.length} {selectedPosts.length === 1 ? "post" : "posts"}
+          </p>
+        </div>
+
+        <div style={{ flex: 1, padding: "12px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          {selectedPosts.length === 0 ? (
+            <p style={{ fontSize: "13px", color: "#4b5563", textAlign: "center", padding: "24px 0" }}>
+              Nothing scheduled for this day
+            </p>
+          ) : (
+            selectedPosts.map(post => {
+              const col = platformColour(post.platform);
+              const statusCol = STATUS_COLOUR[post.status] ?? "#6b7280";
+              const time = post.posted_at ?? post.scheduled_for;
+              return (
+                <div key={post.id} style={{
+                  borderRadius: "8px", border: "1px solid #1f2937",
+                  background: "#111827", overflow: "hidden",
+                }}>
+                  {/* Platform bar */}
+                  <div style={{ background: col.bg, padding: "6px 10px", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 600, color: col.text, textTransform: "capitalize" }}>
+                      {post.platform}
+                    </span>
+                    <span style={{ marginLeft: "auto", fontSize: "10px", color: col.text, opacity: 0.7 }}>
+                      {time ? new Date(time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}
+                    </span>
+                  </div>
+                  {/* Content */}
+                  <div style={{ padding: "10px" }}>
+                    <p style={{ margin: "0 0 8px", fontSize: "12px", color: "#d1d5db", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {post.content}
+                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusCol }} />
+                      <span style={{ fontSize: "10px", color: "#6b7280", textTransform: "capitalize" }}>
+                        {post.status.replace("_", " ")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 }
