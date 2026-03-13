@@ -4,6 +4,7 @@ import { api } from "./convex/api";
 import "./App.css";
 import { GatewayBridge } from "./GatewayBridge";
 import { ContentPipeline, usePendingCount } from "./components/ContentPipeline";
+import { ContentTimeline } from "./components/ContentTimeline";
 import { CostTracking } from "./components/CostTracking";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LoginPage } from "./components/auth/LoginPage";
@@ -588,6 +589,33 @@ function ConversationItem({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Content Section — Queue + Schedule tabs
+// ---------------------------------------------------------------------------
+function ContentSection({ supabaseUrl, supabaseKey }: { supabaseUrl: string; supabaseKey: string }) {
+  const [tab, setTab] = useState<"queue" | "schedule">("queue");
+  return (
+    <div>
+      <div className="content-section-tabs">
+        <button
+          className={`content-tab-btn ${tab === "queue" ? "content-tab-btn--active" : ""}`}
+          onClick={() => setTab("queue")}
+        >
+          📥 Approval Queue
+        </button>
+        <button
+          className={`content-tab-btn ${tab === "schedule" ? "content-tab-btn--active" : ""}`}
+          onClick={() => setTab("schedule")}
+        >
+          📅 Schedule
+        </button>
+      </div>
+      {tab === "queue" && <ContentPipeline supabaseUrl={supabaseUrl} supabaseKey={supabaseKey} />}
+      {tab === "schedule" && <ContentTimeline supabaseUrl={supabaseUrl} supabaseKey={supabaseKey} />}
+    </div>
+  );
+}
+
 function AppDashboard() {
   const dashboard = useQuery(api.getDashboard.default);
   const taskBoard = useQuery(api.getTasksByStatus.default);
@@ -803,7 +831,7 @@ function AppDashboard() {
 
           {/* ── CONTENT PIPELINE ── */}
           {activeNav === "content" && (
-            <ContentPipeline supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+            <ContentSection supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
           )}
 
           {/* ── TASKS ── */}
