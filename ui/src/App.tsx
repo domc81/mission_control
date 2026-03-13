@@ -876,7 +876,9 @@ function AppDashboard() {
                     const activeTaskCount = tasks.filter((task: Task) =>
                       task.assignees && task.assignees.includes(agent._id)
                     ).length;
-                      <div className="agent-emoji">{agent.emoji || "🤖"}</div>
+                    return (
+                      <div key={agent._id} className="agent-card">
+                        <div className="agent-emoji">{agent.emoji || "🤖"}</div>
                       <div className="agent-info">
                         <strong>{agent.name}</strong>
                         <span className="agent-role">{agent.role}</span>
