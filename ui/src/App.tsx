@@ -5,6 +5,7 @@ import "./App.css";
 import { GatewayBridge } from "./GatewayBridge";
 import { ContentPipeline, usePendingCount } from "./components/ContentPipeline";
 import { ContentTimeline } from "./components/ContentTimeline";
+import { LeadsCRM } from "./components/LeadsCRM";
 import { CostTracking } from "./components/CostTracking";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LoginPage } from "./components/auth/LoginPage";
@@ -13,7 +14,7 @@ import { LogoutButton } from "./components/auth/LogoutButton";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-type NavSection = "overview" | "content" | "tasks" | "agents" | "costs" | "docs" | "audit";
+type NavSection = "overview" | "content" | "leads" | "tasks" | "agents" | "costs" | "docs" | "audit";
 
 type Agent = {
   _id: string;
@@ -701,6 +702,7 @@ function AppDashboard() {
   const navItems: { id: NavSection; label: string; emoji: string; badge?: number }[] = [
     { id: "overview", label: "Overview",  emoji: "🎯" },
     { id: "content",  label: "Content",   emoji: "📣", badge: pendingApprovalCount },
+    { id: "leads",    label: "Leads",     emoji: "🎯" },
     { id: "tasks",    label: "Tasks",     emoji: "📋", badge: (dashboard?.tasks.in_progress ?? 0) + (dashboard?.tasks.review ?? 0) },
     { id: "agents",   label: "Agents",    emoji: "🤖" },
     { id: "costs",    label: "Costs",     emoji: "💰" },
@@ -832,6 +834,13 @@ function AppDashboard() {
           {/* ── CONTENT PIPELINE ── */}
           {activeNav === "content" && (
             <ContentSection supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+          )}
+
+          {/* ── LEADS CRM ── */}
+          {activeNav === "leads" && (
+            <div style={{ height: "calc(100vh - 120px)", overflow: "hidden" }}>
+              <LeadsCRM supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+            </div>
           )}
 
           {/* ── TASKS ── */}
