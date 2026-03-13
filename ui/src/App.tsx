@@ -5,9 +5,12 @@ import "./App.css";
 import { GatewayBridge } from "./GatewayBridge";
 import { ContentPipeline, usePendingCount } from "./components/ContentPipeline";
 import { CostTracking } from "./components/CostTracking";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { LoginPage } from "./components/auth/LoginPage";
+import { LogoutButton } from "./components/auth/LogoutButton";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string || "https://api-dc81.dc81.io";
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string || "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3Mjg3MzI4MCwiZXhwIjo0OTI4NTQ2ODgwLCJyb2xlIjoiYW5vbiJ9.0FKP6iMbNe30IkAT9Jwr6vOALB5ExEzo8wIkBlTf95k";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 type NavSection = "overview" | "content" | "tasks" | "agents" | "costs" | "docs" | "audit";
 
@@ -585,7 +588,7 @@ function ConversationItem({
   );
 }
 
-function App() {
+function AppDashboard() {
   const dashboard = useQuery(api.getDashboard.default);
   const taskBoard = useQuery(api.getTasksByStatus.default);
   const activities = useQuery(api.getActivitiesFiltered.default, { limit: 30 });
@@ -713,6 +716,9 @@ function App() {
         </ul>
         <div className="sidebar-footer">
           <span className="sidebar-footer-text">DC81 Ltd</span>
+          <div style={{ marginTop: '8px' }}>
+            <LogoutButton />
+          </div>
         </div>
       </nav>
 
@@ -982,6 +988,33 @@ function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+function AppInner() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="loading">
+        <div className="loading-spinner" />
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  return <AppDashboard />;
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }
 

@@ -22,3 +22,10 @@
 [18:41:39Z] Recent comments (24h): 7
 [18:41:43Z] Output written to /tmp/content-heartbeat.json
 [18:41:43Z] NEEDS ATTENTION: ['4 post(s) waiting approval >30min: 70a453bc, 92e6dfd5, d0b17be2, af79f836', '7 new comment(s) in last 24h — may need response']
+[07:00:01Z] content-heartbeat.py start
+[07:00:01Z] Stale approval: 26d4b3e7 (['linkedin']) since 2026-03-12T16:24
+[07:00:01Z] Stale approval: f1b8da6b (['linkedin']) since 2026-03-12T16:24
+[07:00:01Z] ALERT: 2 stale approvals
+[07:00:02Z] Scheduled posts in Late: 6
+[07:00:09Z] Output written to /tmp/content-heartbeat.json
+[07:00:09Z] NEEDS ATTENTION: ['2 post(s) waiting approval >30min: 26d4b3e7, f1b8da6b']

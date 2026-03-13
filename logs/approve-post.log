@@ -11,3 +11,13 @@
 [17:58:19Z] [DRY RUN] Would run: python3 /root/.openclaw/workspace-cestra/scripts/late-post.py 769c3b54-b9e6-47bc-b5b7-d2d708175280
 [17:58:19Z] [DRY RUN] Complete — no changes made
 [17:58:19Z] approve-post.sh complete (exit 0)
+[17:10:26Z] approve-post.sh start — post_id=67c039bc-533a-4225-8f97-86225bf3564c action=APPROVE dry_run=true
+[17:10:26Z] Fetching post...
+[17:10:26Z] Not found in content_posts — trying social_posts...
+[17:10:26Z] Found post in social_posts | platforms: x | status: scheduled
+[17:10:26Z] Action: APPROVE — scheduling into next available windows
+[17:10:26Z] Processing platform: x
+[17:10:27Z] Next available window for x: 2026-03-14T08:30:00Z
+[17:10:27Z] [DRY RUN] Would schedule x post at 2026-03-14T08:30:00Z
+[17:10:27Z] [DRY RUN] Complete — no changes made
+[17:10:27Z] approve-post.sh complete (exit 0)
