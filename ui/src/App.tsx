@@ -8,6 +8,7 @@ import { ContentTimeline } from "./components/ContentTimeline";
 import { LeadsCRM } from "./components/LeadsCRM";
 import { AuditsSection } from "./components/AuditsSection";
 import { BlogManager } from "./components/BlogManager";
+import { ContentCalendar } from "./components/ContentCalendar";
 import { CostTracking } from "./components/CostTracking";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LoginPage } from "./components/auth/LoginPage";
@@ -16,7 +17,7 @@ import { LogoutButton } from "./components/auth/LogoutButton";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-type NavSection = "overview" | "content" | "leads" | "audits" | "blog" | "tasks" | "agents" | "costs" | "docs" | "audit";
+type NavSection = "overview" | "content" | "calendar" | "leads" | "audits" | "blog" | "tasks" | "agents" | "costs" | "docs" | "audit";
 
 type Agent = {
   _id: string;
@@ -595,6 +596,13 @@ function ConversationItem({
 // ---------------------------------------------------------------------------
 // LeadsCRMWrapper — injects authenticated session token so RLS SELECT works
 // ---------------------------------------------------------------------------
+function ContentCalendarWrapper({ supabaseUrl, supabaseKey }: { supabaseUrl: string; supabaseKey: string }) {
+  const { session } = useAuth();
+  const authToken = session?.access_token ?? "";
+  if (!authToken) return <div style={{ padding: "40px", color: "#9ca3af", textAlign: "center" }}>Not authenticated</div>;
+  return <ContentCalendar supabaseUrl={supabaseUrl} supabaseKey={supabaseKey} authToken={authToken} />;
+}
+
 function BlogManagerWrapper({ supabaseUrl, supabaseKey }: { supabaseUrl: string; supabaseKey: string }) {
   const { session } = useAuth();
   const authToken = session?.access_token ?? "";
@@ -729,6 +737,7 @@ function AppDashboard() {
   const navItems: { id: NavSection; label: string; emoji: string; badge?: number }[] = [
     { id: "overview", label: "Overview",  emoji: "🎯" },
     { id: "content",  label: "Content",   emoji: "📣", badge: pendingApprovalCount },
+    { id: "calendar", label: "Calendar",  emoji: "📅" },
     { id: "leads",    label: "Leads",     emoji: "🎯" },
     { id: "audits",   label: "Audits",    emoji: "🔬" },
     { id: "blog",     label: "Blog",      emoji: "✍️" },
@@ -863,6 +872,13 @@ function AppDashboard() {
           {/* ── CONTENT PIPELINE ── */}
           {activeNav === "content" && (
             <ContentSection supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+          )}
+
+          {/* ── CONTENT CALENDAR ── */}
+          {activeNav === "calendar" && (
+            <div style={{ height: "calc(100vh - 120px)", overflow: "hidden" }}>
+              <ContentCalendarWrapper supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+            </div>
           )}
 
           {/* ── LEADS CRM ── */}
