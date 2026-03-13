@@ -49,7 +49,8 @@ type AuditReport = {
 
 type Props = {
   supabaseUrl: string;
-  supabaseKey: string;
+  supabaseKey: string;   // anon key (stays as apikey header)
+  authToken: string;     // session JWT (Authorization: Bearer)
 };
 
 // ---------------------------------------------------------------------------
@@ -87,7 +88,7 @@ const RAG_COLOUR: Record<string, string> = {
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-export function LeadsCRM({ supabaseUrl, supabaseKey }: Props) {
+export function LeadsCRM({ supabaseUrl, supabaseKey, authToken }: Props) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,9 +99,10 @@ export function LeadsCRM({ supabaseUrl, supabaseKey }: Props) {
   const [view, setView] = useState<"pipeline" | "table">("pipeline");
   const [filterStage, setFilterStage] = useState<PipelineStage | "all">("all");
 
+  // apikey must always be the anon key; Authorization carries the session JWT
   const headers = {
     apikey: supabaseKey,
-    Authorization: `Bearer ${supabaseKey}`,
+    Authorization: `Bearer ${authToken}`,
     "Content-Type": "application/json",
   };
 
