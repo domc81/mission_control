@@ -53,8 +53,17 @@ DC81_VOICE_RULES = """DC81 VOICE RULES — apply strictly to every word:
 PLATFORM_RULES = {
     "x":         "Max 240 chars. No hashtags. Punchy opener. No link in post body.",
     "linkedin":  "120-260 words. One clear point. End with question or CTA. 3-5 hashtags at END only, never inline. No link in post body (put it in first comment).",
-    "facebook":  "Slightly longer than X, friendly. Adapt from LinkedIn. Can include link.",
-    "instagram": "Short caption. Max 1 emoji. Hashtags on separate line. MUST have media — never text-only.",
+    "facebook":  "Slightly longer than X, friendly tone, CTA. Can include link. Adapt from LinkedIn copy.",
+    "instagram": "Short caption (1-3 sentences). Max 1 emoji. Hashtags on separate line (5-8 relevant tags). The card image IS the visual — your caption just needs to hook them.",
+}
+
+# content_type → card template mapping
+CARD_TEMPLATES = {
+    "tip":          "tip-insight-card",
+    "stat":         "stat-fact-card",
+    "announcement": "announcement-card",
+    "quote":        "quote-share-card",
+    "blog_share":   "blog-share-card",
 }
 
 # ---------------------------------------------------------------------------
@@ -162,6 +171,116 @@ def whatsapp(msg: str):
 # Wait for file (agent writes output to disk)
 # ---------------------------------------------------------------------------
 
+def render_card(content_type: str, topic: str, copy_dict: dict, dry_run: bool) -> str:
+    """Render SVG card to PNG, upload to Supabase. Returns public URL or '' on failure."""
+    template = CARD_TEMPLATES.get(content_type)
+    if not template:
+        log(f"  No card template for content_type={content_type!r} — skipping card")
+        return ""
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    slug  = "".join(c if c.isalnum() or c == "-" else "-"
+                    for c in topic.lower().replace(" ", "-"))[:30].strip("-")
+
+    # Build card vars from copy
+    main_copy = (copy_dict.get("linkedin") or copy_dict.get("x") or "")
+
+    if content_type == "tip":
+        # Word-wrap into up to 4 lines of ~38 chars
+        words, lines, cur = main_copy.split(), [], []
+        for w in words:
+            cur.append(w)
+            if len(" ".join(cur)) > 38:
+                lines.append(" ".join(cur[:-1]))
+                cur = [w]
+                if len(lines) == 4:
+                    break
+        if cur and len(lines) < 4:
+            lines.append(" ".join(cur))
+        while len(lines) < 4:
+            lines.append("")
+        card_vars = {
+            "TIP_LINE_1": lines[0][:40],
+            "TIP_LINE_2": lines[1][:40],
+            "TIP_LINE_3": lines[2][:40],
+            "TIP_LINE_4": lines[3][:40],
+            "TAG": "DC81",
+        }
+    elif content_type == "stat":
+        card_vars = {
+            "STAT":          topic[:30],
+            "CAPTION_LINE_1": main_copy[:55],
+            "CAPTION_LINE_2": "",
+            "SOURCE":         "DC81 Research",
+        }
+    elif content_type == "announcement":
+        card_vars = {
+            "HEADLINE_LINE_1": topic[:40],
+            "HEADLINE_LINE_2": "",
+            "SUBTEXT_LINE_1":  main_copy[:55],
+            "SUBTEXT_LINE_2":  "",
+        }
+    elif content_type == "quote":
+        words = main_copy.split()
+        lines, cur = [], []
+        for w in words:
+            cur.append(w)
+            if len(" ".join(cur)) > 38:
+                lines.append(" ".join(cur[:-1]))
+                cur = [w]
+                if len(lines) == 4:
+                    break
+        if cur and len(lines) < 4:
+            lines.append(" ".join(cur))
+        while len(lines) < 4:
+            lines.append("")
+        card_vars = {
+            "QUOTE_LINE_1": lines[0][:40],
+            "QUOTE_LINE_2": lines[1][:40],
+            "QUOTE_LINE_3": lines[2][:40],
+            "QUOTE_LINE_4": lines[3][:40],
+            "AUTHOR":        "Dominic Clauzel",
+            "SOURCE":        "DC81",
+        }
+    elif content_type == "blog_share":
+        card_vars = {
+            "CATEGORY":       "DC81",
+            "CATEGORY_WIDTH": "80",
+            "TITLE_LINE_1":   topic[:40],
+            "TITLE_LINE_2":   "",
+            "TITLE_LINE_3":   "",
+            "DATE":           datetime.now(timezone.utc).strftime("%-d %B %Y"),
+            "READ_TIME":      "5 min read",
+        }
+    else:
+        return ""
+
+    if dry_run:
+        log(f"  [DRY RUN] Would render {template} for {slug}")
+        return "https://example.com/dry-run-card.png"
+
+    log(f"  Rendering card: {template}")
+    try:
+        result = subprocess.run(
+            ["python3", f"{WORKSPACE}/scripts/render-card.py",
+             "--template", template,
+             "--vars",     json.dumps(card_vars),
+             "--slug",     slug,
+             "--date",     today],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode == 0:
+            url = result.stdout.strip()
+            log(f"  Card ready: {url}")
+            return url
+        else:
+            log(f"  [WARN] Card render failed: {result.stderr[-200:]}")
+            return ""
+    except Exception as e:
+        log(f"  [WARN] Card render exception: {e}")
+        return ""
+
+
 def wait_for_file(path: str, max_wait: int = 120) -> bool:
     for _ in range(max_wait // 5):
         if Path(path).exists() and Path(path).stat().st_size > 10:
@@ -237,9 +356,9 @@ Format (include only requested platforms):
 {{
   "x": "tweet text",
   "linkedin": "post body",
-  "linkedin_first_comment": "link for first comment",
-  "facebook": "facebook post",
-  "instagram": "caption"
+  "linkedin_first_comment": "DC81 service link for first comment e.g. https://dc81.io/services/ai-agents",
+  "facebook": "facebook post (can include link)",
+  "instagram": "short caption — remember the card image is the visual, caption just needs to hook them. End with hashtags on a new line."
 }}
 
 Save the file. Reply DONE."""
@@ -294,15 +413,28 @@ Same format as input. Save file. Reply DONE."""
             else:
                 log("  Kyra review timed out — using Loki copy as-is")
 
-    # ── Step 4: Insert to social_posts ─────────────────────────────────────
-    log("Step 4: Supabase inserts")
-    post_ids = []
+    # ── Step 4: Render card (Instagram requires it; Facebook + others benefit) ─
+    log("Step 4: Render card")
+    card_url = render_card(content_type, topic, copy_dict, dry_run)
+    if not card_url:
+        log("  Card render failed — Instagram will be skipped this run")
+
+    # ── Step 5: Insert to social_posts ─────────────────────────────────────
+    log("Step 5: Supabase inserts")
+    post_ids    = []
+    posted_plats = []
 
     for platform in platforms:
+        # Instagram: must have media — drop if no card
+        if platform == "instagram" and not card_url:
+            log(f"  Skipping instagram — no card available")
+            continue
+
         copy_text = copy_dict.get(platform) or copy_dict.get("linkedin") or ""
         if not copy_text or copy_text.startswith("[DRY RUN"):
             if dry_run:
                 post_ids.append(f"dry-run-{platform}")
+                posted_plats.append(platform)
                 continue
             log(f"  [WARN] No copy for {platform} — skipping")
             continue
@@ -313,40 +445,43 @@ Same format as input. Save file. Reply DONE."""
             "status":       "pending_approval",
             "content_type": "original",
         }
-        if platform == "linkedin" and copy_dict.get("linkedin_first_comment"):
-            # Store first comment in rejection_reason field temporarily (schema limitation)
-            # TODO: add first_comment column to social_posts
-            pass
+        # Attach card as media for Instagram and Facebook; LinkedIn/X use it in approval message
+        if card_url and platform in ("instagram", "facebook"):
+            row["media_urls"] = [card_url]
 
         if dry_run:
             log(f"  [DRY RUN] Would insert: {platform} | {copy_text[:60]}...")
             post_ids.append(f"dry-run-{platform}")
+            posted_plats.append(platform)
         else:
             post_id = sb_insert(sb_url, sb_key, "social_posts", row)
             if post_id:
                 log(f"  Inserted: {post_id[:8]} ({platform})")
                 post_ids.append(post_id)
+                posted_plats.append(platform)
 
     if not post_ids:
         log("  No posts created — pipeline aborted")
         return
 
-    # ── Step 5: WhatsApp approval ──────────────────────────────────────────
-    log("Step 5: WhatsApp to Dominic")
+    # ── Step 6: WhatsApp approval ──────────────────────────────────────────
+    log("Step 6: WhatsApp to Dominic")
 
     snippets = []
     for i, pid in enumerate(post_ids):
-        plat = platforms[i] if i < len(platforms) else "?"
+        plat = posted_plats[i] if i < len(posted_plats) else "?"
         copy_text = copy_dict.get(plat, "")
-        snippets.append(f"{plat.upper()}: {copy_text[:80]}{'...' if len(copy_text) > 80 else ''}")
+        snippets.append(f"{plat.upper()} ({pid[:8]}): {copy_text[:80]}{'...' if len(copy_text) > 80 else ''}")
+
+    card_line = f"\nCard: {card_url}" if card_url else ""
 
     msg = (
         f"📝 Content ready for approval\n"
         f"Topic: {topic}\n"
-        f"Type: {content_type}\n\n"
+        f"Type: {content_type} | {', '.join(posted_plats)}"
+        f"{card_line}\n\n"
         + "\n\n".join(snippets)
-        + f"\n\nPost IDs: {', '.join(p[:8] for p in post_ids)}\n"
-        f"Reply: APPROVE <id> or REJECT <id> <reason>"
+        + f"\n\nReply: APPROVE <id> or REJECT <id> <reason>"
     )
 
     if dry_run:
@@ -354,7 +489,7 @@ Same format as input. Save file. Reply DONE."""
     else:
         whatsapp(msg)
 
-    log(f"[SOCIAL] Pipeline complete — {len(post_ids)} posts queued")
+    log(f"[SOCIAL] Pipeline complete — {len(post_ids)} posts queued on {posted_plats}")
 
 # ---------------------------------------------------------------------------
 # BLOG PIPELINE

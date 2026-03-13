@@ -4,13 +4,17 @@ content-scheduler.py — DC81 Autonomous Content Scheduler
 Runs on cron. Decides what to create today, then calls content-pipeline.py.
 
 Schedule (controlled by cron):
-  - Mon/Wed/Fri 08:00: 1 social post (LinkedIn + X)
-  - Tue/Thu 08:00:     1 social post (LinkedIn only)
-  - Sat 09:00:         1 blog post draft
+  - Mon/Wed/Fri 08:00: LinkedIn + X + Instagram + Facebook (card rendered)
+  - Tue/Thu 08:00:     LinkedIn + Facebook (text-friendly days)
+  - Sat 09:00:         Blog post draft
+
+Instagram is always included — every post gets a card rendered (tip/stat/quote/announcement).
+Instagram is automatically dropped from the run only if card rendering fails.
+Facebook runs every day alongside at least one other platform.
 
 Does NOT run if:
   - Already ran today (state file)
-  - Too many pending_approval posts exist (backlog protection, limit=5)
+  - Too many pending_approval posts exist (backlog protection, limit=8)
   - Too many draft blog posts exist (limit=3)
 
 Topics rotate from topic bank. ORIN adds new topics when bank runs low.
@@ -35,7 +39,7 @@ TOPIC_BANK     = f"{WORKSPACE}/data/content-topics.json"
 PIPELINE_CMD   = f"{WORKSPACE}/scripts/content-pipeline.py"
 SUPABASE_CREDS = "/root/.dc81-supabase-credentials"
 
-MAX_PENDING_SOCIAL = 5   # Stop if this many posts awaiting approval
+MAX_PENDING_SOCIAL = 8   # Stop if this many posts awaiting approval (4 platforms × 2 days buffer)
 MAX_DRAFT_BLOGS    = 3   # Stop if this many blog drafts unreviewed
 
 os.makedirs(f"{WORKSPACE}/logs", exist_ok=True)
@@ -298,11 +302,12 @@ def main():
                     topic        = topic_obj["topic"]
                     content_type = topic_obj.get("content_type", "tip")
 
-                    # Mon/Wed/Fri: LinkedIn + X; Tue/Thu: LinkedIn only
+                    # Mon/Wed/Fri: all four platforms (card always rendered)
+                    # Tue/Thu: LinkedIn + Facebook (text-friendly, no card required)
                     if weekday in (0, 2, 4):
-                        platforms = "linkedin,x"
+                        platforms = "linkedin,x,instagram,facebook"
                     else:
-                        platforms = "linkedin"
+                        platforms = "linkedin,facebook"
 
                     log(f"Social topic: {topic!r} | platforms: {platforms}")
                     args = [
