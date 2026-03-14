@@ -1,0 +1,125 @@
+{
+  "social": [
+    {
+      "topic": "Why 68% of UK SME websites don't generate a single lead per month",
+      "content_type": "original",
+      "post_type": "stat"
+    },
+    {
+      "topic": "The one thing UK business owners keep getting wrong about AI",
+      "content_type": "original",
+      "post_type": "tip"
+    },
+    {
+      "topic": "How to get your first AI automation running in under a week",
+      "content_type": "original",
+      "post_type": "tip"
+    },
+    {
+      "topic": "What Google's local ranking update means for UK service businesses",
+      "content_type": "original",
+      "post_type": "tip"
+    },
+    {
+      "topic": "Why your website redesign won't fix your lead problem",
+      "content_type": "original",
+      "post_type": "tip"
+    },
+    {
+      "topic": "SEO in 2026: what still works for UK local businesses",
+      "content_type": "original",
+      "post_type": "tip"
+    },
+    {
+      "topic": "Three reasons UK SMEs are losing leads to faster competitors",
+      "content_type": "original",
+      "post_type": "tip"
+    },
+    {
+      "topic": "What a custom web app actually costs \u2014 and when it pays for itself",
+      "content_type": "original",
+      "post_type": "tip"
+    },
+    {
+      "topic": "The difference between AI hype and AI that earns its keep",
+      "content_type": "original",
+      "post_type": "tip"
+    },
+    {
+      "topic": "The cost of a bad hire vs the cost of an AI agent",
+      "content_type": "original",
+      "post_type": "stat"
+    },
+    {
+      "topic": "ONS: UK SME digital adoption still lags EU average by 12 points",
+      "content_type": "curated",
+      "post_type": "stat"
+    },
+    {
+      "topic": "McKinsey: 70% of digital transformations fail \u2014 here's the real reason",
+      "content_type": "curated",
+      "post_type": "quote"
+    },
+    {
+      "topic": "FSB report: 43% of small businesses say finding skilled staff is their top challenge",
+      "content_type": "curated",
+      "post_type": "stat"
+    },
+    {
+      "topic": "Google: 76% of local searches result in a phone call or visit within 24h",
+      "content_type": "curated",
+      "post_type": "stat"
+    },
+    {
+      "topic": "Deloitte UK: businesses using AI growing revenue 3x faster than those that aren't",
+      "content_type": "curated",
+      "post_type": "stat"
+    }
+  ],
+  "blog": [
+    {
+      "topic": "Why your website isn't generating leads (and it's not the design)",
+      "content_type": "original"
+    },
+    {
+      "topic": "How to use AI agents in your business without hiring a developer",
+      "content_type": "original"
+    },
+    {
+      "topic": "Local SEO for UK service businesses: what actually works in 2026",
+      "content_type": "original"
+    },
+    {
+      "topic": "The real cost of manual processes in a small business",
+      "content_type": "original"
+    },
+    {
+      "topic": "Custom web apps vs off-the-shelf: when does it make sense to build?",
+      "content_type": "original"
+    },
+    {
+      "topic": "What UK business owners should know about AI before they spend a penny",
+      "content_type": "original"
+    },
+    {
+      "topic": "How to turn your website into your best salesperson",
+      "content_type": "original"
+    },
+    {
+      "topic": "Why most SME AI pilots fail \u2014 and what to do instead",
+      "content_type": "original"
+    }
+  ],
+  "used_social": [
+    "ONS: UK SME digital adoption still lags EU average by 12 points"
+  ],
+  "used_blog": [
+    "Why your website isn't generating leads (and it's not the design)"
+  ],
+  "weekly_mix": {
+    "curated": 1,
+    "original": 0,
+    "personal": 0,
+    "week_start": "2026-03-09"
+  }
+}
