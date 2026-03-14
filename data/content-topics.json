@@ -111,14 +111,16 @@
     }
   ],
   "used_social": [
-    "ONS: UK SME digital adoption still lags EU average by 12 points"
+    "ONS: UK SME digital adoption still lags EU average by 12 points",
+    "Why 68% of UK SME websites don't generate a single lead per month"
   ],
   "used_blog": [
-    "Why your website isn't generating leads (and it's not the design)"
+    "Why your website isn't generating leads (and it's not the design)",
+    "How to use AI agents in your business without hiring a developer"
   ],
   "weekly_mix": {
     "curated": 1,
-    "original": 0,
+    "original": 1,
     "personal": 0,
     "week_start": "2026-03-09"
   }

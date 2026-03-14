@@ -1,0 +1,49 @@
+2026-03-13T18:44:21Z [INFO] Found 1 new audit lead(s)
+2026-03-13T18:44:21Z [INFO] Processing lead 5f1a290f-0f49-4293-a351-dbc84c19cb3a — dominicclauzel@gmail.com — DC81 Ltd
+2026-03-13T18:44:21Z [INFO] Audit job created: 24835919-d2f0-44e5-a946-5ab1074122b6
+2026-03-13T18:44:22Z [INFO] HTTP Request: GET https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fdc81.io&strategy=DESKTOP&key=AIzaSyCOjWEezwW2o2Kgu9iInSPtzz-Af2f5Ne4&fields=lighthouseResult.categories "HTTP/1.1 403 Forbidden"
+2026-03-13T18:44:22Z [INFO] HTTP Request: GET https://dc81.io/sitemap.xml "HTTP/1.1 200 OK"
+2026-03-13T18:44:22Z [INFO] HTTP Request: GET https://dc81.io/robots.txt "HTTP/1.1 200 OK"
+2026-03-13T18:44:22Z [INFO] HTTP Request: HEAD https://www.linkedin.com/company/dc81ltd "HTTP/1.1 999 Request denied"
+2026-03-13T18:44:22Z [INFO] HTTP Request: GET https://dc81.io "HTTP/1.1 200 OK"
+2026-03-13T18:44:22Z [INFO] HTTP Request: GET https://dc81.io "HTTP/1.1 200 OK"
+2026-03-13T18:44:22Z [INFO] HTTP Request: GET https://dc81.io "HTTP/1.1 200 OK"
+2026-03-13T18:44:22Z [INFO] HTTP Request: HEAD https://x.com/dc81ltd "HTTP/1.1 403 Forbidden"
+2026-03-13T18:44:22Z [INFO] HTTP Request: GET https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fdc81.io&strategy=MOBILE&key=AIzaSyCOjWEezwW2o2Kgu9iInSPtzz-Af2f5Ne4&fields=lighthouseResult.categories "HTTP/1.1 403 Forbidden"
+2026-03-13T18:44:22Z [INFO] Report written — score: 36 — token: 17c0c474-0471-46dc-bf5e-d52cd8fdedf7
+2026-03-13T18:44:22Z [INFO] Email sent to dominicclauzel@gmail.com — Resend ID: ff7cd335-1f2b-4bc8-8287-89cc547369cf
+2026-03-13T18:44:22Z [INFO] Lead 5f1a290f-0f49-4293-a351-dbc84c19cb3a — pipeline complete ✓
+2026-03-13T18:56:49Z [INFO] Found 1 new audit lead(s)
+2026-03-13T18:56:49Z [INFO] Processing lead f723d524-a4d0-4659-b4d0-b2fcceecdd16 — dominicclauzel@gmail.com — DC81 Ltd
+2026-03-13T18:56:49Z [INFO] Audit job created: 6f862fc8-adb2-4300-8359-bae15cc4d762
+2026-03-13T18:56:49Z [INFO] HTTP Request: HEAD https://www.linkedin.com/company/dc81ltd "HTTP/1.1 999 Request denied"
+2026-03-13T18:56:49Z [INFO] HTTP Request: GET https://dc81.io/sitemap.xml "HTTP/1.1 200 OK"
+2026-03-13T18:56:49Z [INFO] HTTP Request: GET https://dc81.io/robots.txt "HTTP/1.1 200 OK"
+2026-03-13T18:56:49Z [INFO] HTTP Request: GET https://dc81.io "HTTP/1.1 200 OK"
+2026-03-13T18:56:49Z [INFO] HTTP Request: GET https://dc81.io "HTTP/1.1 200 OK"
+2026-03-13T18:56:49Z [INFO] HTTP Request: GET https://dc81.io "HTTP/1.1 200 OK"
+2026-03-13T18:56:49Z [INFO] HTTP Request: HEAD https://x.com/dc81ltd "HTTP/1.1 403 Forbidden"
+2026-03-13T18:57:00Z [INFO] HTTP Request: GET https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fdc81.io&strategy=MOBILE&key=AIzaSyCOjWEezwW2o2Kgu9iInSPtzz-Af2f5Ne4&fields=lighthouseResult.categories "HTTP/1.1 200 OK"
+2026-03-13T18:57:01Z [INFO] HTTP Request: GET https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fdc81.io&strategy=DESKTOP&key=AIzaSyCOjWEezwW2o2Kgu9iInSPtzz-Af2f5Ne4&fields=lighthouseResult.categories "HTTP/1.1 200 OK"
+2026-03-13T18:57:01Z [INFO] Report written — score: 36 — token: 09ce01ac-3fcf-47d2-a4e9-3f3fc2be2d41
+2026-03-13T18:57:02Z [INFO] Email sent to dominicclauzel@gmail.com — Resend ID: 73ae28a6-45fd-4d3b-86fb-50c8196fdd4d
+2026-03-13T18:57:02Z [INFO] Lead f723d524-a4d0-4659-b4d0-b2fcceecdd16 — pipeline complete ✓
+2026-03-13T19:07:01Z [INFO] Found 1 new audit lead(s)
+2026-03-13T19:07:01Z [INFO] Processing lead 5eb04472-3cd9-41ee-9652-d0dad2897c55 — dirkdiggler1974@icloud.com — DC81 Ltd
+2026-03-13T19:07:02Z [INFO] Audit job created: 83b1e7f8-c59c-4806-b574-0f4f351586cf
+2026-03-13T19:07:02Z [INFO] HTTP Request: GET https://dc81.io/robots.txt "HTTP/1.1 200 OK"
+2026-03-13T19:07:02Z [INFO] HTTP Request: HEAD https://www.linkedin.com/company/https://www.linkedin.com/company/111969932 "HTTP/1.1 999 Request denied"
+2026-03-13T19:07:02Z [INFO] HTTP Request: GET https://dc81.io/sitemap.xml "HTTP/1.1 200 OK"
+2026-03-13T19:07:02Z [INFO] HTTP Request: GET https://dc81.io "HTTP/1.1 200 OK"
+2026-03-13T19:07:02Z [INFO] HTTP Request: GET https://dc81.io "HTTP/1.1 200 OK"
+2026-03-13T19:07:02Z [INFO] HTTP Request: GET https://dc81.io "HTTP/1.1 200 OK"
+2026-03-13T19:07:02Z [INFO] HTTP Request: HEAD https://www.instagram.com/dc81io "HTTP/1.1 302 Found"
+2026-03-13T19:07:02Z [INFO] HTTP Request: HEAD https://www.instagram.com/accounts/login/?next=https%3A%2F%2Fwww.instagram.com%2Fdc81io&is_from_rle "HTTP/1.1 200 OK"
+2026-03-13T19:07:02Z [INFO] HTTP Request: HEAD https://www.facebook.com/DC81%20Ltd "HTTP/1.1 302 Found"
+2026-03-13T19:07:03Z [INFO] HTTP Request: HEAD https://www.facebook.com/login/?next=https%3A%2F%2Fwww.facebook.com%2FDC81%2520Ltd "HTTP/1.1 200 OK"
+2026-03-13T19:07:03Z [INFO] HTTP Request: HEAD https://x.com/dc81io "HTTP/1.1 403 Forbidden"
+2026-03-13T19:07:14Z [INFO] HTTP Request: GET https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fdc81.io&strategy=DESKTOP&key=AIzaSyCOjWEezwW2o2Kgu9iInSPtzz-Af2f5Ne4&fields=lighthouseResult.categories "HTTP/1.1 200 OK"
+2026-03-13T19:07:15Z [INFO] HTTP Request: GET https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fdc81.io&strategy=MOBILE&key=AIzaSyCOjWEezwW2o2Kgu9iInSPtzz-Af2f5Ne4&fields=lighthouseResult.categories "HTTP/1.1 200 OK"
+2026-03-13T19:07:15Z [INFO] Report written — score: 48 — token: 1032c2f0-95c0-488e-8c49-71a6ab402f0a
+2026-03-13T19:07:16Z [INFO] Email sent to dirkdiggler1974@icloud.com — Resend ID: dfe65594-0560-4eec-816f-ae02e2eec6b2
+2026-03-13T19:07:16Z [INFO] Lead 5eb04472-3cd9-41ee-9652-d0dad2897c55 — pipeline complete ✓

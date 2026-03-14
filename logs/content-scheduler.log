@@ -1,0 +1,67 @@
+[22:09:13Z] content-scheduler.py start | weekday=4 | dry_run=True
+[22:09:13Z] Social topic: "Why 68% of UK SME websites don't generate a single lead per month" | platforms: linkedin,x
+[22:09:13Z]   Running: --type social --topic Why 68% of UK SME websites don't generate a single lead per month --platforms linkedin,x --content-type stat --dry-run
+[22:09:13Z]   Pipeline completed successfully
+[22:09:13Z] content-scheduler.py done
+[23:59:30Z] content-scheduler.py start | weekday=4 | dry_run=True
+[23:59:30Z] Social topic: 'The one thing UK business owners keep getting wrong about AI' | platforms: linkedin,x,instagram,facebook
+[23:59:30Z]   Running: --type social --topic The one thing UK business owners keep getting wrong about AI --platforms linkedin,x,instagram,facebook --content-type tip --dry-run
+[23:59:30Z]   Pipeline completed successfully
+[23:59:30Z] content-scheduler.py done
+[00:09:12Z] content-scheduler.py start | 2026-03-14 (weekday=5) | dry_run=True
+[00:09:12Z] Backlog: 2 pending social, 0 draft blogs
+[00:09:12Z] Today's topic: 'How to get your first AI automation running in under a week' (tip/tip)
+[00:09:12Z]   [x 10:00] --type social --topic How to get your first AI automation running in under a week --platform x
+[00:09:12Z]   [x 10:00] FAILED: type {curated,original,personal}]
+                           [--dry-run]
+content-pipeline.py: error: argument --content-mix-type: invalid choice: 'tip' (choose from 'curated', 'original', 'personal')
+
+[00:09:12Z]   [x 14:00] --type social --topic How to get your first AI automation running in under a week --platform x
+[00:09:12Z]   [x 14:00] FAILED: type {curated,original,personal}]
+                           [--dry-run]
+content-pipeline.py: error: argument --content-mix-type: invalid choice: 'tip' (choose from 'curated', 'original', 'personal')
+
+[00:09:12Z]   [instagram 11:00] --type social --topic How to get your first AI automation running in under a week --platform instagram
+[00:09:12Z]   [instagram 11:00] FAILED: type {curated,original,personal}]
+                           [--dry-run]
+content-pipeline.py: error: argument --content-mix-type: invalid choice: 'tip' (choose from 'curated', 'original', 'personal')
+
+[00:09:12Z]   [facebook 11:30] --type social --topic How to get your first AI automation running in under a week --platform facebook
+[00:09:12Z]   [facebook 11:30] FAILED: type {curated,original,personal}]
+                           [--dry-run]
+content-pipeline.py: error: argument --content-mix-type: invalid choice: 'tip' (choose from 'curated', 'original', 'personal')
+
+[00:09:12Z] Social scheduling done: 0 posts queued
+[00:09:12Z]   [blog] --type blog --topic Why your website isn't generating leads (and it's not the design) --dry-run
+[00:09:12Z]   [blog] OK
+[00:09:12Z] content-scheduler.py done
+[00:09:55Z] content-scheduler.py start | 2026-03-14 (weekday=5) | dry_run=True
+[00:09:55Z] Backlog: 2 pending social, 0 draft blogs
+[00:09:55Z] Today's topic: 'ONS: UK SME digital adoption still lags EU average by 12 points' (curated/stat)
+[00:09:55Z]   [x 10:00] --type social --topic ONS: UK SME digital adoption still lags EU average by 12 points --platform x
+[00:09:55Z]   [x 10:00] OK
+[00:09:55Z]   [x 14:00] --type social --topic ONS: UK SME digital adoption still lags EU average by 12 points --platform x
+[00:09:55Z]   [x 14:00] OK
+[00:09:55Z]   [instagram 11:00] --type social --topic ONS: UK SME digital adoption still lags EU average by 12 points --platform instagram
+[00:09:55Z]   [instagram 11:00] OK
+[00:09:55Z]   [facebook 11:30] --type social --topic ONS: UK SME digital adoption still lags EU average by 12 points --platform facebook
+[00:09:55Z]   [facebook 11:30] OK
+[00:09:55Z] Social scheduling done: 4 posts queued
+[00:09:55Z]   [blog] --type blog --topic Why your website isn't generating leads (and it's not the design) --dry-run
+[00:09:55Z]   [blog] OK
+[00:09:55Z] content-scheduler.py done
+[06:00:01Z] content-scheduler.py start | 2026-03-14 (weekday=5) | dry_run=False
+[06:00:01Z] Backlog: 2 pending social, 0 draft blogs
+[06:00:01Z] Today's topic: "Why 68% of UK SME websites don't generate a single lead per month" (original/stat)
+[06:00:01Z]   [x 10:00] --type social --topic Why 68% of UK SME websites don't generate a single lead per month --platform x
+[06:00:54Z]   [x 10:00] OK
+[06:00:54Z]   [x 14:00] --type social --topic Why 68% of UK SME websites don't generate a single lead per month --platform x
+[06:01:06Z]   [x 14:00] OK
+[06:01:06Z]   [instagram 11:00] --type social --topic Why 68% of UK SME websites don't generate a single lead per month --platform instagram
+[06:01:19Z]   [instagram 11:00] OK
+[06:01:19Z]   [facebook 11:30] --type social --topic Why 68% of UK SME websites don't generate a single lead per month --platform facebook
+[06:01:34Z]   [facebook 11:30] OK
+[06:01:34Z] Social scheduling done: 4 posts queued
+[06:01:34Z]   [blog] --type blog --topic How to use AI agents in your business without hiring a developer
+[06:02:47Z]   [blog] OK
+[06:02:47Z] content-scheduler.py done

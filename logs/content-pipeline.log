@@ -1,0 +1,320 @@
+[22:09:13Z] [SOCIAL] Topic: "Why 68% of UK SME websites don't generate a single lead per month" | Platforms: ['linkedin', 'x'] | Type: stat
+[22:09:13Z] Step 1: Vision research
+[22:09:13Z] Step 2: Loki copy
+[22:09:13Z] Step 3: Kyra review
+[22:09:13Z] Step 4: Supabase inserts
+[22:09:13Z] Step 5: WhatsApp to Dominic
+[22:09:13Z]   [DRY RUN] WhatsApp:
+📝 Content ready for approval
+Topic: Why 68% of UK SME websites don't generate a single lead per month
+Type: stat
+
+LINKEDIN: [DRY RUN copy for linkedin]
+
+X: [DRY RUN copy for x]
+
+Post IDs: dry-run-, dry-run-
+Reply: APPROVE <id> or REJECT <id> <reason>
+[22:09:13Z] [SOCIAL] Pipeline complete — 2 posts queued
+[22:09:18Z] [SOCIAL] Topic: "Why 68% of UK SME websites don't generate a single lead per month" | Platforms: ['linkedin', 'x'] | Type: stat
+[22:09:18Z] Step 1: Vision research
+[22:09:18Z] Step 2: Loki copy
+[22:09:18Z] Step 3: Kyra review
+[22:09:18Z] Step 4: Supabase inserts
+[22:09:18Z] Step 5: WhatsApp to Dominic
+[22:09:18Z]   [DRY RUN] WhatsApp:
+📝 Content ready for approval
+Topic: Why 68% of UK SME websites don't generate a single lead per month
+Type: stat
+
+LINKEDIN: [DRY RUN copy for linkedin]
+
+X: [DRY RUN copy for x]
+
+Post IDs: dry-run-, dry-run-
+Reply: APPROVE <id> or REJECT <id> <reason>
+[22:09:18Z] [SOCIAL] Pipeline complete — 2 posts queued
+[22:09:21Z] [BLOG] Topic: "Why your website isn't generating leads (and it's not the design)"
+[22:09:21Z] Step 1: Vision research
+[22:09:21Z] Step 2: Loki blog draft
+[22:09:21Z] Step 3: Kyra review
+[22:09:21Z] Step 4: Supabase blog_posts insert
+[22:09:21Z]   [DRY RUN] Would insert blog_posts: [DRY RUN] Why your website isn't generating leads (and it's 
+[22:09:21Z] Step 5: WhatsApp to Dominic
+[22:09:21Z]   [DRY RUN] WhatsApp:
+✍️ Blog draft ready for review
+Title: [DRY RUN] Why your website isn't generating leads (and it's not the design)
+Category: AI | 5 min read
+Excerpt: Dry run excerpt
+
+Review in Mission Control → Blog section.
+Publish when ready.
+[22:09:21Z] [BLOG] Pipeline complete — draft '[DRY RUN] Why your website isn't generating leads (and it's not the design)' in blog_posts (status=draft)
+[23:59:30Z] [SOCIAL] Topic: 'The one thing UK business owners keep getting wrong about AI' | Platforms: ['linkedin', 'x', 'instagram', 'facebook'] | Type: tip
+[23:59:30Z] Step 1: Vision research
+[23:59:30Z] Step 2: Loki copy
+[23:59:30Z] Step 3: Kyra review
+[23:59:30Z] Step 4: Render card
+[23:59:30Z]   [DRY RUN] Would render tip-insight-card for the-one-thing-uk-business-owne
+[23:59:30Z] Step 5: Supabase inserts
+[23:59:30Z] Step 6: WhatsApp to Dominic
+[23:59:30Z]   [DRY RUN] WhatsApp:
+📝 Content ready for approval
+Topic: The one thing UK business owners keep getting wrong about AI
+Type: tip | linkedin, x, instagram, facebook
+Card: https://example.com/dry-run-card.png
+
+LINKEDIN (dry-run-): [DRY RUN copy for linkedin]
+
+X (dry-run-): [DRY RUN copy for x]
+
+INSTAGRAM (dry-run-): [DRY RUN copy for instagram]
+
+FACEBOOK (dry-run-): [DRY RUN copy for facebook]
+
+Reply: APPROVE <id> or REJECT <id> <reason>
+[23:59:30Z] [SOCIAL] Pipeline complete — 4 posts queued on ['linkedin', 'x', 'instagram', 'facebook']
+[23:59:34Z] [SOCIAL] Topic: 'The one thing UK business owners keep getting wrong about AI' | Platforms: ['linkedin', 'x', 'instagram', 'facebook'] | Type: tip
+[23:59:34Z] Step 1: Vision research
+[23:59:34Z] Step 2: Loki copy
+[23:59:34Z] Step 3: Kyra review
+[23:59:34Z] Step 4: Render card
+[23:59:34Z]   [DRY RUN] Would render tip-insight-card for the-one-thing-uk-business-owne
+[23:59:34Z] Step 5: Supabase inserts
+[23:59:34Z] Step 6: WhatsApp to Dominic
+[23:59:34Z]   [DRY RUN] WhatsApp:
+📝 Content ready for approval
+Topic: The one thing UK business owners keep getting wrong about AI
+Type: tip | linkedin, x, instagram, facebook
+Card: https://example.com/dry-run-card.png
+
+LINKEDIN (dry-run-): [DRY RUN copy for linkedin]
+
+X (dry-run-): [DRY RUN copy for x]
+
+INSTAGRAM (dry-run-): [DRY RUN copy for instagram]
+
+FACEBOOK (dry-run-): [DRY RUN copy for facebook]
+
+Reply: APPROVE <id> or REJECT <id> <reason>
+[23:59:34Z] [SOCIAL] Pipeline complete — 4 posts queued on ['linkedin', 'x', 'instagram', 'facebook']
+[00:09:12Z] [BLOG] "Why your website isn't generating leads (and it's not the design)"
+[00:09:12Z] Step 1: Vision research
+[00:09:12Z] Step 2: Loki blog draft
+[00:09:12Z] Step 3: Kyra review
+[00:09:12Z] Step 4: Supabase INSERT
+[00:09:12Z]   [DRY RUN] Would insert blog: [DRY RUN] Why your website isn't generating leads (and it's 
+[00:09:12Z] Step 5: WhatsApp
+[00:09:12Z]   [DRY RUN] WhatsApp:
+✍️ Blog draft ready
+Title: [DRY RUN] Why your website isn't generating leads (and it's not the design)
+Category: AI | 5 min read
+Excerpt: dry run
+
+Review in MC → Blog section.
+[00:09:12Z] [BLOG] Done — '[DRY RUN] Why your website isn't generating leads (and it's not the design)' in blog_posts (draft)
+[00:09:55Z] [SOCIAL] x | lead | 2026-03-14T10:00:00Z | ONS: UK SME digital adoption still lags EU average
+[00:09:55Z] Step 1: Vision research
+[00:09:55Z] Step 2: Loki copy (x/lead)
+[00:09:55Z] Step 3: Kyra review
+[00:09:55Z] Step 4: Card
+[00:09:55Z]   [DRY RUN] Would render stat-fact-card
+[00:09:55Z] Step 5: Supabase INSERT
+[00:09:55Z]   [DRY RUN] Would insert: x | sched=2026-03-14T10:00:00Z | [DRY RUN x/lead] ONS: UK SME digital adoption still lags EU 
+[00:09:55Z] Step 6: WhatsApp
+[00:09:55Z]   [DRY RUN] WhatsApp:
+📝 X post ready
+Slot: 10:00 UTC | Type: stat (curated)
+Card: https://example.com/dry-run-card.png
+
+[DRY RUN x/lead] ONS: UK SME digital adoption still lags EU average by 12 poi
+
+ID: dry-run-x-lead
+Reply: APPROVE dry-run-x-lead or REJECT dry-run-x-lead <reason>
+[00:09:55Z] [SOCIAL] Done — x lead queued for 2026-03-14T10:00:00Z
+[00:09:55Z] [SOCIAL] x | angle_2 | 2026-03-14T14:00:00Z | ONS: UK SME digital adoption still lags EU average
+[00:09:55Z] Step 1: Vision research
+[00:09:55Z] Step 2: Loki copy (x/angle_2)
+[00:09:55Z] Step 3: Kyra review
+[00:09:55Z] Step 4: Card
+[00:09:55Z]   [DRY RUN] Would render stat-fact-card
+[00:09:55Z] Step 5: Supabase INSERT
+[00:09:55Z]   [DRY RUN] Would insert: x | sched=2026-03-14T14:00:00Z | [DRY RUN x/angle_2] ONS: UK SME digital adoption still lags 
+[00:09:55Z] Step 6: WhatsApp
+[00:09:55Z]   [DRY RUN] WhatsApp:
+📝 X post ready
+Slot: 14:00 UTC | Type: stat (curated)
+Card: https://example.com/dry-run-card.png
+
+[DRY RUN x/angle_2] ONS: UK SME digital adoption still lags EU average by 12 poi
+
+ID: dry-run-x-angle_2
+Reply: APPROVE dry-run-x-angle_2 or REJECT dry-run-x-angle_2 <reason>
+[00:09:55Z] [SOCIAL] Done — x angle_2 queued for 2026-03-14T14:00:00Z
+[00:09:55Z] [SOCIAL] instagram | lead | 2026-03-14T11:00:00Z | ONS: UK SME digital adoption still lags EU average
+[00:09:55Z] Step 1: Vision research
+[00:09:55Z] Step 2: Loki copy (instagram/lead)
+[00:09:55Z] Step 3: Kyra review
+[00:09:55Z] Step 4: Card
+[00:09:55Z]   [DRY RUN] Would render stat-fact-card
+[00:09:55Z] Step 5: Supabase INSERT
+[00:09:55Z]   [DRY RUN] Would insert: instagram | sched=2026-03-14T11:00:00Z | [DRY RUN instagram/lead] ONS: UK SME digital adoption still 
+[00:09:55Z] Step 6: WhatsApp
+[00:09:55Z]   [DRY RUN] WhatsApp:
+📝 INSTAGRAM post ready
+Slot: 11:00 UTC | Type: stat (curated)
+Card: https://example.com/dry-run-card.png
+
+[DRY RUN instagram/lead] ONS: UK SME digital adoption still lags EU average by 12 poi
+
+ID: dry-run-instagram-lead
+Reply: APPROVE dry-run-instagram-lead or REJECT dry-run-instagram-lead <reason>
+[00:09:55Z] [SOCIAL] Done — instagram lead queued for 2026-03-14T11:00:00Z
+[00:09:55Z] [SOCIAL] facebook | lead | 2026-03-14T11:30:00Z | ONS: UK SME digital adoption still lags EU average
+[00:09:55Z] Step 1: Vision research
+[00:09:55Z] Step 2: Loki copy (facebook/lead)
+[00:09:55Z] Step 3: Kyra review
+[00:09:55Z] Step 4: Card
+[00:09:55Z]   [DRY RUN] Would render stat-fact-card
+[00:09:55Z] Step 5: Supabase INSERT
+[00:09:55Z]   [DRY RUN] Would insert: facebook | sched=2026-03-14T11:30:00Z | [DRY RUN facebook/lead] ONS: UK SME digital adoption still l
+[00:09:55Z] Step 6: WhatsApp
+[00:09:55Z]   [DRY RUN] WhatsApp:
+📝 FACEBOOK post ready
+Slot: 11:30 UTC | Type: stat (curated)
+Card: https://example.com/dry-run-card.png
+
+[DRY RUN facebook/lead] ONS: UK SME digital adoption still lags EU average by 12 poi
+
+ID: dry-run-facebook-lead
+Reply: APPROVE dry-run-facebook-lead or REJECT dry-run-facebook-lead <reason>
+[00:09:55Z] [SOCIAL] Done — facebook lead queued for 2026-03-14T11:30:00Z
+[00:09:55Z] [BLOG] "Why your website isn't generating leads (and it's not the design)"
+[00:09:55Z] Step 1: Vision research
+[00:09:55Z] Step 2: Loki blog draft
+[00:09:55Z] Step 3: Kyra review
+[00:09:55Z] Step 4: Supabase INSERT
+[00:09:55Z]   [DRY RUN] Would insert blog: [DRY RUN] Why your website isn't generating leads (and it's 
+[00:09:55Z] Step 5: WhatsApp
+[00:09:55Z]   [DRY RUN] WhatsApp:
+✍️ Blog draft ready
+Title: [DRY RUN] Why your website isn't generating leads (and it's not the design)
+Category: AI | 5 min read
+Excerpt: dry run
+
+Review in MC → Blog section.
+[00:09:55Z] [BLOG] Done — '[DRY RUN] Why your website isn't generating leads (and it's not the design)' in blog_posts (draft)
+[00:10:00Z] [SOCIAL] x | lead | 2026-03-14T09:30:00Z | ONS: UK SME digital adoption still lags EU average
+[00:10:00Z] Step 1: Vision research
+[00:10:00Z] Step 2: Loki copy (x/lead)
+[00:10:00Z] Step 3: Kyra review
+[00:10:00Z] Step 4: Card
+[00:10:00Z]   [DRY RUN] Would render stat-fact-card
+[00:10:00Z] Step 5: Supabase INSERT
+[00:10:00Z]   [DRY RUN] Would insert: x | sched=2026-03-14T09:30:00Z | [DRY RUN x/lead] ONS: UK SME digital adoption still lags EU 
+[00:10:00Z] Step 6: WhatsApp
+[00:10:00Z]   [DRY RUN] WhatsApp:
+📝 X post ready
+Slot: 09:30 UTC | Type: stat (curated)
+Card: https://example.com/dry-run-card.png
+
+[DRY RUN x/lead] ONS: UK SME digital adoption still lags EU average by 12 poi
+
+ID: dry-run-x-lead
+Reply: APPROVE dry-run-x-lead or REJECT dry-run-x-lead <reason>
+[00:10:00Z] [SOCIAL] Done — x lead queued for 2026-03-14T09:30:00Z
+[00:10:05Z] [SOCIAL] x | angle_3 | 2026-03-14T17:00:00Z | ONS: UK SME digital adoption still lags EU average
+[00:10:05Z] Step 1: Vision research
+[00:10:05Z] Step 2: Loki copy (x/angle_3)
+[00:10:05Z] Step 3: Kyra review
+[00:10:05Z] Step 4: Card
+[00:10:05Z]   [DRY RUN] Would render stat-fact-card
+[00:10:05Z] Step 5: Supabase INSERT
+[00:10:05Z]   [DRY RUN] Would insert: x | sched=2026-03-14T17:00:00Z | [DRY RUN x/angle_3] ONS: UK SME digital adoption still lags 
+[00:10:05Z] Step 6: WhatsApp
+[00:10:05Z]   [DRY RUN] WhatsApp:
+📝 X post ready
+Slot: 17:00 UTC | Type: stat (curated)
+Card: https://example.com/dry-run-card.png
+
+[DRY RUN x/angle_3] ONS: UK SME digital adoption still lags EU average by 12 poi
+
+ID: dry-run-x-angle_3
+Reply: APPROVE dry-run-x-angle_3 or REJECT dry-run-x-angle_3 <reason>
+[00:10:05Z] [SOCIAL] Done — x angle_3 queued for 2026-03-14T17:00:00Z
+[06:00:01Z] [SOCIAL] x | lead | 2026-03-14T10:00:00Z | Why 68% of UK SME websites don't generate a single
+[06:00:01Z] Step 1: Vision research
+[06:00:31Z]   → vision: delivered
+[06:00:31Z] Step 2: Loki copy (x/lead)
+[06:00:41Z]   → loki: delivered
+[06:00:41Z]   Copy: UK SMEs are losing £23bn a year because of a digital skills ...
+[06:00:41Z] Step 3: Kyra review
+[06:00:52Z]   → kyra: delivered
+[06:00:52Z] Step 4: Card
+[06:00:52Z]   Rendering stat-fact-card
+[06:00:52Z]   Card: https://api-dc81.dc81.io/storage/v1/object/public/social-media-assets/stat-fact-card-2026-03-14-why-68--of-uk-sme-websites-don.png
+[06:00:52Z] Step 5: Supabase INSERT
+[06:00:52Z]   Inserted: 18905c13
+[06:00:52Z] Step 6: WhatsApp
+[06:00:54Z]   [WARN] WhatsApp: error: required option '-t, --target <dest>' not specified
+
+[06:00:54Z] [SOCIAL] Done — x lead queued for 2026-03-14T10:00:00Z
+[06:00:54Z] [SOCIAL] x | angle_2 | 2026-03-14T14:00:00Z | Why 68% of UK SME websites don't generate a single
+[06:00:54Z] Step 1: Vision research (cached)
+[06:00:54Z] Step 2: Loki copy (x/angle_2)
+[06:00:59Z]   → loki: delivered
+[06:00:59Z]   Copy: I see UK owners buying 'all-in-one' automated SEO tools whil...
+[06:00:59Z] Step 3: Kyra review
+[06:01:04Z]   → kyra: delivered
+[06:01:04Z] Step 4: Card
+[06:01:04Z]   Rendering stat-fact-card
+[06:01:05Z]   [WARN] Card failed: Supabase upload failed: HTTP 400 Bad Request
+{"statusCode":"409","error":"Duplicate","message":"The resource already exists"}
+
+[06:01:05Z] Step 5: Supabase INSERT
+[06:01:05Z]   Inserted: 56e3af4a
+[06:01:05Z] Step 6: WhatsApp
+[06:01:06Z]   [WARN] WhatsApp: error: required option '-t, --target <dest>' not specified
+
+[06:01:06Z] [SOCIAL] Done — x angle_2 queued for 2026-03-14T14:00:00Z
+[06:01:06Z] [SOCIAL] instagram | lead | 2026-03-14T11:00:00Z | Why 68% of UK SME websites don't generate a single
+[06:01:06Z] Step 1: Vision research (cached)
+[06:01:06Z] Step 2: Loki copy (instagram/lead)
+[06:01:13Z]   → loki: delivered
+[06:01:13Z]   Copy: 90% of UK SMEs have a digital skills gap that costs the econ...
+[06:01:13Z] Step 3: Kyra review
+[06:01:18Z]   → kyra: delivered
+[06:01:18Z] Step 4: Card
+[06:01:18Z]   Rendering stat-fact-card
+[06:01:19Z]   [WARN] Card failed: Supabase upload failed: HTTP 400 Bad Request
+{"statusCode":"409","error":"Duplicate","message":"The resource already exists"}
+
+[06:01:19Z]   Instagram requires card — skipping (card render failed)
+[06:01:19Z] [SOCIAL] facebook | lead | 2026-03-14T11:30:00Z | Why 68% of UK SME websites don't generate a single
+[06:01:19Z] Step 1: Vision research (cached)
+[06:01:19Z] Step 2: Loki copy (facebook/lead)
+[06:01:27Z]   → loki: delivered
+[06:01:27Z]   Copy: I was looking at industry projections recently: digital skil...
+[06:01:27Z] Step 3: Kyra review
+[06:01:32Z]   → kyra: delivered
+[06:01:32Z] Step 4: Card
+[06:01:32Z]   Rendering stat-fact-card
+[06:01:33Z]   [WARN] Card failed: Supabase upload failed: HTTP 400 Bad Request
+{"statusCode":"409","error":"Duplicate","message":"The resource already exists"}
+
+[06:01:33Z] Step 5: Supabase INSERT
+[06:01:33Z]   Inserted: dcdde839
+[06:01:33Z] Step 6: WhatsApp
+[06:01:34Z]   [WARN] WhatsApp: error: required option '-t, --target <dest>' not specified
+
+[06:01:34Z] [SOCIAL] Done — facebook lead queued for 2026-03-14T11:30:00Z
+[06:01:34Z] [BLOG] 'How to use AI agents in your business without hiring a developer'
+[06:01:34Z] Step 1: Vision research
+[06:02:09Z]   → vision: delivered
+[06:02:09Z] Step 2: Loki blog draft
+[06:02:35Z]   → loki: delivered
+[06:02:35Z] Step 3: Kyra review
+[06:02:47Z]   → kyra: delivered
+[06:02:47Z] Step 4: Supabase INSERT
+[06:02:47Z]   [ERROR] Supabase INSERT blog_posts: HTTP Error 401: Unauthorized
+[06:02:47Z]   Insert failed

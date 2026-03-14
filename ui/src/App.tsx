@@ -11,6 +11,7 @@ import { BlogManager } from "./components/BlogManager";
 import { ContentCalendar } from "./components/ContentCalendar";
 import { ContentCalendar } from "./components/ContentCalendar";
 import { CostTracking } from "./components/CostTracking";
+import { VideoMedia } from "./components/VideoMedia";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LoginPage } from "./components/auth/LoginPage";
 import { LogoutButton } from "./components/auth/LogoutButton";
@@ -18,7 +19,7 @@ import { LogoutButton } from "./components/auth/LogoutButton";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-type NavSection = "overview" | "content" | "leads" | "audits" | "blog" | "calendar" | "tasks" | "agents" | "costs" | "docs" | "audit";
+type NavSection = "overview" | "content" | "leads" | "audits" | "blog" | "calendar" | "tasks" | "agents" | "costs" | "docs" | "audit" | "video";
 
 type Agent = {
   _id: string;
@@ -745,6 +746,7 @@ function AppDashboard() {
     { id: "tasks",    label: "Tasks",     emoji: "📋", badge: (dashboard?.tasks.in_progress ?? 0) + (dashboard?.tasks.review ?? 0) },
     { id: "agents",   label: "Agents",    emoji: "🤖" },
     { id: "costs",    label: "Costs",     emoji: "💰" },
+    { id: "video",    label: "Video",     emoji: "🎬" },
     { id: "docs",     label: "Documents", emoji: "📄" },
     { id: "audit",    label: "Audit Log", emoji: "🔍" },
   ];
@@ -1014,7 +1016,10 @@ function AppDashboard() {
           )}
 
           {/* ── DOCUMENTS ── */}
-          {activeNav === "docs" && (
+          {activeNav === "video" && (
+            <VideoMedia supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+          )}
+                    {activeNav === "docs" && (
             <section className="panel">
               <h2>Documents</h2>
               <form className="doc-upload-form" onSubmit={handleFileUpload}>

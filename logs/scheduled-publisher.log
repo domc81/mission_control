@@ -1,0 +1,8 @@
+2026-03-14T13:43:01Z [INFO] Found 2 post(s) due for publishing
+2026-03-14T13:43:01Z [INFO] Publishing post 18905c13-90fb-477e-afd7-3083860273d2 | platform=x | scheduled_for=2026-03-14T10:00:00+00:00
+2026-03-14T13:43:07Z [INFO] ✓ Post 18905c13-90fb-477e-afd7-3083860273d2 published | Late ID: 69b557d867615911ab013bbf
+2026-03-14T13:43:07Z [INFO] Publishing post dcdde839-6ed0-44a7-86d1-b37bd81c22a7 | platform=facebook | scheduled_for=2026-03-14T11:30:00+00:00
+2026-03-14T13:43:18Z [INFO] ✓ Post dcdde839-6ed0-44a7-86d1-b37bd81c22a7 published | Late ID: 69b557de67615911ab013d18
+2026-03-14T15:00:01Z [INFO] Found 1 post(s) due for publishing
+2026-03-14T15:00:01Z [INFO] Publishing post 56e3af4a-c87f-4451-81a9-a27503e6185e | platform=x | scheduled_for=2026-03-14T14:00:00+00:00
+2026-03-14T15:00:08Z [INFO] ✓ Post 56e3af4a-c87f-4451-81a9-a27503e6185e published | Late ID: 69b569e44a9d317edbf8c07b
