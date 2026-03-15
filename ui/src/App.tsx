@@ -12,6 +12,7 @@ import { ContentCalendar } from "./components/ContentCalendar";
 import { ContentCalendar } from "./components/ContentCalendar";
 import { CostTracking } from "./components/CostTracking";
 import { VideoMedia } from "./components/VideoMedia";
+import { BrandKitManager } from "./components/BrandKitManager";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LoginPage } from "./components/auth/LoginPage";
 import { LogoutButton } from "./components/auth/LogoutButton";
@@ -654,6 +655,42 @@ function ContentSection({ supabaseUrl, supabaseKey }: { supabaseUrl: string; sup
   );
 }
 
+// ── Video Section: sub-tabs for Pipeline Kanban + Brand Kit Manager ──────────
+function VideoSection({ supabaseUrl, supabaseKey }: { supabaseUrl: string; supabaseKey: string }) {
+  const [videoSubTab, setVideoSubTab] = useState<"pipeline" | "brands">("pipeline");
+  return (
+    <div>
+      {/* Sub-tab bar */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {([
+          { key: "pipeline", label: "🎬 Video Pipeline" },
+          { key: "brands",   label: "🎨 Brand Kits" },
+        ] as const).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setVideoSubTab(t.key)}
+            style={{
+              background: videoSubTab === t.key ? "#00D4FF22" : "transparent",
+              border: `1px solid ${videoSubTab === t.key ? "#00D4FF" : "#1f2937"}`,
+              color: videoSubTab === t.key ? "#00D4FF" : "#9ca3af",
+              borderRadius: 8, padding: "6px 18px", cursor: "pointer",
+              fontSize: 13, fontWeight: 600,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {videoSubTab === "pipeline" && (
+        <VideoMedia supabaseUrl={supabaseUrl} supabaseKey={supabaseKey} />
+      )}
+      {videoSubTab === "brands" && (
+        <BrandKitManager supabaseUrl={supabaseUrl} supabaseKey={supabaseKey} />
+      )}
+    </div>
+  );
+}
+
 function AppDashboard() {
   const dashboard = useQuery(api.getDashboard.default);
   const taskBoard = useQuery(api.getTasksByStatus.default);
@@ -1015,9 +1052,9 @@ function AppDashboard() {
             <CostTracking />
           )}
 
-          {/* ── DOCUMENTS ── */}
+          {/* ── VIDEO ── */}
           {activeNav === "video" && (
-            <VideoMedia supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
+            <VideoSection supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_KEY} />
           )}
                     {activeNav === "docs" && (
             <section className="panel">
