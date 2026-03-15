@@ -134,6 +134,12 @@ function VideoJobCard({
   onClick: () => void;
 }) {
   const colour = STATUS_COLOURS[job.status] ?? "#6b7280";
+  
+  // Get display title - use video_title, transcription excerpt, or fallback
+  const displayTitle = job.video_title 
+    || (job.transcription ? job.transcription.slice(0, 50) + "..." : null)
+    || job.input_url;
+  
   return (
     <div
       onClick={onClick}
@@ -141,9 +147,10 @@ function VideoJobCard({
         background: "#0d0d1a",
         border: `1px solid ${colour}33`,
         borderRadius: 10,
-        padding: "12px 14px",
+        padding: 0,
         cursor: "pointer",
         transition: "border-color 0.15s, box-shadow 0.15s",
+        overflow: "hidden",
       }}
       onMouseEnter={e => {
         (e.currentTarget as HTMLDivElement).style.borderColor = colour + "88";
@@ -154,49 +161,111 @@ function VideoJobCard({
         (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
       }}
     >
-      {/* Title / source */}
-      <div style={{ color: "white", fontWeight: 600, fontSize: 13, marginBottom: 4, lineHeight: 1.3 }}>
-        {job.video_title
-          ? job.video_title.slice(0, 60) + (job.video_title.length > 60 ? "…" : "")
-          : job.source_ref || job.input_url.slice(0, 40) + "…"}
-      </div>
-
-      {/* Client name / source */}
-      <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 6 }}>
-        {job.source} · {new Date(job.created_at).toLocaleString("en-GB", {
-          day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-        })}
-      </div>
-
-      {/* Status badge */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <StatusBadge status={job.status} />
-        {job.duration_secs && (
-          <span style={{ fontSize: 11, color: "#4b5563" }}>
-            {Math.round(job.duration_secs)}s
-          </span>
-        )}
-      </div>
-
-      {/* Progress bar (only when processing) */}
-      {PROCESSING_STATUSES.has(job.status) && job.progress_pct != null && (
-        <ProgressBar pct={job.progress_pct} />
-      )}
-
-      {/* Error snippet */}
-      {job.error_message && (
+      {/* Thumbnail */}
+      {job.output_public_url ? (
         <div style={{
-          marginTop: 6, fontSize: 11, color: "#ef4444",
-          background: "#ef444411", borderRadius: 4, padding: "4px 8px",
+          height: 80,
+          background: "#1a1a2e",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
         }}>
-          {job.error_message.slice(0, 80)}
+          <video
+            src={job.output_public_url}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: 0.9,
+            }}
+            preload="metadata"
+          />
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            background: `linear-gradient(to bottom, transparent 60%, #0d0d1a 100%)`,
+          }} />
+          <div style={{
+            position: "absolute",
+            bottom: 6,
+            right: 8,
+            background: "rgba(0,0,0,0.7)",
+            borderRadius: 4,
+            padding: "2px 6px",
+            fontSize: 10,
+            color: "#9ca3af",
+          }}>
+            {job.duration_secs ? `${Math.round(job.duration_secs)}s` : "▶"}
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          height: 80,
+          background: "#1a1a2e",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#4b5563",
+          fontSize: 24,
+        }}>
+          🎬
         </div>
       )}
+
+      {/* Content */}
+      <div style={{ padding: "10px 12px" }}>
+        {/* Title - truncated with ellipsis, tooltip on hover */}
+        <div 
+          style={{ 
+            color: "white", 
+            fontWeight: 600, 
+            fontSize: 12, 
+            marginBottom: 6, 
+            lineHeight: 1.4,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            minHeight: 34,
+          }}
+          title={displayTitle || undefined}
+        >
+          {displayTitle || "Untitled"}
+        </div>
+
+        {/* Meta row */}
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          fontSize: 10,
+          color: "#6b7280",
+        }}>
+          <span style={{ 
+            overflow: "hidden", 
+            textOverflow: "ellipsis", 
+            whiteSpace: "nowrap",
+            maxWidth: "60%",
+          }}>
+            {job.source}
+          </span>
+          <span>
+            {new Date(job.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+          </span>
+        </div>
+
+        {/* Progress bar (only when processing) */}
+        {PROCESSING_STATUSES.has(job.status) && job.progress_pct != null && (
+          <ProgressBar pct={job.progress_pct} />
+        )}
+      </div>
     </div>
   );
 }
 
-// ── VideoJob Detail Panel ─────────────────────────────────────────────────────
+// ── VideoJob Detail Modal ────────────────────────────────────────────────────
 
 function VideoJobDetail({
   job,
@@ -239,11 +308,12 @@ function VideoJobDetail({
     <div style={{
       position: "fixed" as const,
       inset: 0,
-      background: "rgba(0,0,0,0.75)",
+      background: "rgba(0,0,0,0.85)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       zIndex: 1000,
+      padding: 20,
     }} onClick={onClose}>
       <div
         onClick={e => e.stopPropagation()}
@@ -251,125 +321,182 @@ function VideoJobDetail({
           background: "#0d0d1a",
           border: "1px solid #1f2937",
           borderRadius: 16,
-          padding: "28px 32px",
-          width: "min(600px, 95vw)",
-          maxHeight: "85vh",
+          width: "min(800px, 100%)",
+          maxHeight: "90vh",
           overflowY: "auto" as const,
+          display: "flex",
+          flexDirection: "column" as const,
         }}
       >
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-          <div>
-            <h3 style={{ margin: 0, color: "#00D4FF", fontSize: 18, fontWeight: 700 }}>
-              {job.video_title || job.source_ref || "Video Job"}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          padding: "20px 24px",
+          borderBottom: "1px solid #1f2937",
+          position: "sticky" as const,
+          top: 0,
+          background: "#0d0d1a",
+          zIndex: 10,
+        }}>
+          <div style={{ flex: 1, minWidth: 0, paddingRight: 16 }}>
+            <h3 style={{ margin: 0, color: "white", fontSize: 16, fontWeight: 700 }}>
+              {job.video_title || "Video Job"}
             </h3>
-            <div style={{ color: "#6b7280", fontSize: 12, marginTop: 4 }}>
-              {job.id} · {job.source} · {job.input_type}
+            <div style={{ color: "#6b7280", fontSize: 11, marginTop: 4 }}>
+              {job.source} · {job.input_type} · Created {new Date(job.created_at).toLocaleString("en-GB")}
             </div>
           </div>
           <button onClick={onClose} style={{
             background: "transparent", border: "none", color: "#6b7280",
-            fontSize: 20, cursor: "pointer", lineHeight: 1, padding: 4,
+            fontSize: 24, cursor: "pointer", lineHeight: 1, padding: 4,
           }}>✕</button>
         </div>
 
-        {/* Status + progress */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
-            <StatusBadge status={job.status} />
-            {job.progress_pct != null && (
-              <span style={{ fontSize: 12, color: "#9ca3af" }}>{job.progress_pct}%</span>
-            )}
-          </div>
-          {job.progress_pct != null && <ProgressBar pct={job.progress_pct} />}
-        </div>
-
-        {/* Meta grid */}
-        <div style={{
-          display: "grid", gridTemplateColumns: "1fr 1fr",
-          gap: "8px 16px", marginBottom: 16, fontSize: 12,
-        }}>
-          {[
-            ["Created", new Date(job.created_at).toLocaleString("en-GB")],
-            ["Updated", new Date(job.updated_at).toLocaleString("en-GB")],
-            ["Input", job.input_url.slice(0, 45) + (job.input_url.length > 45 ? "…" : "")],
-            ["Ratio", job.target_ratio],
-            ["Duration", job.duration_secs ? `${job.duration_secs}s` : "—"],
-            ["File size", job.file_size_bytes
-              ? `${(job.file_size_bytes / 1024 / 1024).toFixed(1)} MB` : "—"],
-          ].map(([k, v]) => (
-            <div key={k as string}>
-              <div style={{ color: "#6b7280", marginBottom: 2 }}>{k}</div>
-              <div style={{ color: "#e5e7eb" }}>{v}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Error */}
-        {job.error_message && (
+        {/* Video Player */}
+        {job.output_public_url ? (
           <div style={{
-            background: "#ef444411", border: "1px solid #ef444433",
-            borderRadius: 8, padding: "10px 14px", marginBottom: 16,
-            fontSize: 12, color: "#ef4444",
+            background: "#000",
+            aspectRatio: "9/16",
+            maxHeight: "50vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}>
-            <strong>Error:</strong> {job.error_message}
+            <video
+              src={job.output_public_url}
+              controls
+              autoPlay
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+              }}
+            />
+          </div>
+        ) : (
+          <div style={{
+            background: "#1a1a2e",
+            aspectRatio: "9/16",
+            maxHeight: "50vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#4b5563",
+            fontSize: 48,
+          }}>
+            🎬
           </div>
         )}
 
-        {/* Transcript */}
-        {job.transcription && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ color: "#9ca3af", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-              TRANSCRIPT
+        {/* Content */}
+        <div style={{ padding: "20px 24px", flex: 1 }}>
+          {/* Status + progress */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
+              <StatusBadge status={job.status} />
+              {job.progress_pct != null && job.progress_pct < 100 && (
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>{job.progress_pct}% complete</span>
+              )}
+              {job.duration_secs && (
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>· {Math.round(job.duration_secs)}s</span>
+              )}
             </div>
+            {job.progress_pct != null && job.progress_pct < 100 && <ProgressBar pct={job.progress_pct} />}
+          </div>
+
+          {/* Meta grid */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "12px 20px", marginBottom: 20, fontSize: 12,
+          }}>
+            {[
+              ["Job ID", job.id.slice(0, 8) + "…" + job.id.slice(-4)],
+              ["Source", job.source],
+              ["Target Ratio", job.target_ratio],
+              ["Created", new Date(job.created_at).toLocaleString("en-GB")],
+              ["Updated", new Date(job.updated_at).toLocaleString("en-GB")],
+              ["File Size", job.file_size_bytes ? `${(job.file_size_bytes / 1024 / 1024).toFixed(1)} MB` : "—"],
+            ].map(([k, v]) => (
+              <div key={k as string}>
+                <div style={{ color: "#6b7280", marginBottom: 2, fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{k}</div>
+                <div style={{ color: "#e5e7eb", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis" }}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Transcript */}
+          {job.transcription && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: "#9ca3af", fontSize: 11, fontWeight: 600, marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>
+                Generated Caption / Transcript
+              </div>
+              <div style={{
+                background: "#111827", borderRadius: 8, padding: "14px 16px",
+                fontSize: 13, color: "#d1d5db", lineHeight: 1.6,
+                maxHeight: 200, overflowY: "auto" as const,
+              }}>
+                {job.transcription}
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {job.error_message && (
             <div style={{
-              background: "#111827", borderRadius: 8, padding: "12px 14px",
-              fontSize: 13, color: "#d1d5db", lineHeight: 1.6,
-              maxHeight: 160, overflowY: "auto" as const,
+              background: "#ef444411", border: "1px solid #ef444433",
+              borderRadius: 8, padding: "12px 14px", marginBottom: 20,
+              fontSize: 12, color: "#ef4444",
             }}>
-              {job.transcription}
+              <strong>Error:</strong> {job.error_message}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Output URL */}
-        {job.output_public_url && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ color: "#9ca3af", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-              OUTPUT
+          {/* Actions */}
+          {!["approved", "rejected", "failed", "published"].includes(job.status) && (
+            <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+              <button
+                onClick={handleApprove}
+                disabled={acting !== null}
+                style={{
+                  flex: 1, background: "#05966922", border: "1px solid #059669",
+                  color: "#10b981", borderRadius: 8, padding: "10px 0",
+                  cursor: acting ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13,
+                }}>
+                {acting === "approve" ? "Approving…" : "✅ Approve for Publishing"}
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={acting !== null}
+                style={{
+                  flex: 1, background: "#ef444411", border: "1px solid #ef4444",
+                  color: "#ef4444", borderRadius: 8, padding: "10px 0",
+                  cursor: acting ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13,
+                }}>
+                {acting === "reject" ? "Rejecting…" : "❌ Reject"}
+              </button>
             </div>
-            <a href={job.output_public_url} target="_blank" rel="noreferrer"
-              style={{ color: "#00D4FF", fontSize: 13, wordBreak: "break-all" as const }}>
-              {job.output_public_url}
-            </a>
-          </div>
-        )}
+          )}
 
-        {/* Approve / Reject */}
-        {!["approved", "rejected", "failed"].includes(job.status) && (
-          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-            <button
-              onClick={handleApprove}
-              disabled={acting !== null}
-              style={{
-                flex: 1, background: "#05966922", border: "1px solid #059669",
-                color: "#10b981", borderRadius: 8, padding: "8px 0",
-                cursor: acting ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13,
-              }}>
-              {acting === "approve" ? "Approving…" : "✅ Approve"}
-            </button>
-            <button
-              onClick={handleReject}
-              disabled={acting !== null}
-              style={{
-                flex: 1, background: "#ef444411", border: "1px solid #ef4444",
-                color: "#ef4444", borderRadius: 8, padding: "8px 0",
-                cursor: acting ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13,
-              }}>
-              {acting === "reject" ? "Rejecting…" : "❌ Reject"}
-            </button>
-          </div>
-        )}
+          {/* Published state */}
+          {job.status === "published" && job.output_public_url && (
+            <div style={{
+              background: "#05966911", border: "1px solid #05966944",
+              borderRadius: 8, padding: "14px 16px", marginTop: 8,
+              display: "flex", alignItems: "center", gap: 12,
+            }}>
+              <span style={{ fontSize: 20 }}>🚀</span>
+              <div>
+                <div style={{ color: "#10b981", fontWeight: 600, fontSize: 13 }}>Published</div>
+                <a href={job.output_public_url} target="_blank" rel="noreferrer"
+                  style={{ color: "#00D4FF", fontSize: 12, wordBreak: "break-all" as const }}>
+                  View published video
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
