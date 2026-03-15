@@ -124,21 +124,22 @@ function ProgressBar({ pct }: { pct: number }) {
   );
 }
 
-// ── VideoJob Card ─────────────────────────────────────────────────────────────
+// ── Unified Video Job Card ───────────────────────────────────────────────────
 
-function VideoJobCard({
+function UnifiedJobCard({
   job,
   onClick,
 }: {
-  job: VideoJob;
+  job: UnifiedJob;
   onClick: () => void;
 }) {
   const colour = STATUS_COLOURS[job.status] ?? "#6b7280";
   
-  // Get display title - use video_title, transcription excerpt, or fallback
+  // Get display title
   const displayTitle = job.video_title 
+    || job.description 
     || (job.transcription ? job.transcription.slice(0, 50) + "..." : null)
-    || job.input_url;
+    || "Untitled";
   
   return (
     <div
@@ -215,7 +216,23 @@ function VideoJobCard({
 
       {/* Content */}
       <div style={{ padding: "10px 12px" }}>
-        {/* Title - truncated with ellipsis, tooltip on hover */}
+        {/* Source badge + title */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <span style={{
+            background: job.source === "curated" ? "#8b5cf622" : "#05966922",
+            color: job.source === "curated" ? "#8b5cf6" : "#10b981",
+            fontSize: 9,
+            fontWeight: 700,
+            padding: "1px 5px",
+            borderRadius: 4,
+            textTransform: "uppercase" as const,
+            letterSpacing: "0.03em",
+          }}>
+            {job.source === "curated" ? "Curated" : "Client"}
+          </span>
+        </div>
+
+        {/* Title - truncated */}
         <div 
           style={{ 
             color: "white", 
@@ -249,14 +266,14 @@ function VideoJobCard({
             whiteSpace: "nowrap",
             maxWidth: "60%",
           }}>
-            {job.source}
+            {job.source_detail || job.source}
           </span>
           <span>
             {new Date(job.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
           </span>
         </div>
 
-        {/* Progress bar (only when processing) */}
+        {/* Progress bar */}
         {PROCESSING_STATUSES.has(job.status) && job.progress_pct != null && (
           <ProgressBar pct={job.progress_pct} />
         )}
@@ -267,41 +284,46 @@ function VideoJobCard({
 
 // ── VideoJob Detail Modal ────────────────────────────────────────────────────
 
-function VideoJobDetail({
+// ── Unified Job Detail Modal ─────────────────────────────────────────────────
+
+function UnifiedJobDetail({
   job,
   supabaseUrl,
   headers,
   onClose,
   onRefresh,
 }: {
-  job: VideoJob;
+  job: UnifiedJob;
   supabaseUrl: string;
   headers: Record<string, string>;
   onClose: () => void;
   onRefresh: () => void;
 }) {
-  const [acting, setActing] = useState<"approve" | "reject" | null>(null);
+  const [acting, setActing] = useState<"approve" | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleApprove() {
     setActing("approve");
-    await fetch(`${supabaseUrl}/rest/v1/video_jobs?id=eq.${job.id}`, {
-      method: "PATCH",
-      headers: { ...headers, Prefer: "return=minimal" },
-      body: JSON.stringify({ status: "approved" }),
-    });
-    onRefresh();
-    setActing(null);
-  }
-
-  async function handleReject() {
-    setActing("reject");
-    await fetch(`${supabaseUrl}/rest/v1/video_jobs?id=eq.${job.id}`, {
-      method: "PATCH",
-      headers: { ...headers, Prefer: "return=minimal" },
-      body: JSON.stringify({ status: "rejected" }),
-    });
-    onRefresh();
-    setActing(null);
+    setError(null);
+    
+    try {
+      const r = await fetch(`${supabaseUrl}/approve?job_id=${job.id}&job_type=${job.source === "curated" ? "video_jobs" : "client_jobs"}`, {
+        method: "POST",
+        headers,
+      });
+      
+      if (!r.ok) {
+        const err = await r.json();
+        throw new Error(err.detail || "Approve failed");
+      }
+      
+      const result = await r.json();
+      console.log("Approve result:", result);
+      onRefresh();
+    } catch (e: any) {
+      setError(e.message || "Failed to approve");
+      setActing(null);
+    }
   }
 
   return (
@@ -341,11 +363,24 @@ function VideoJobDetail({
           zIndex: 10,
         }}>
           <div style={{ flex: 1, minWidth: 0, paddingRight: 16 }}>
-            <h3 style={{ margin: 0, color: "white", fontSize: 16, fontWeight: 700 }}>
-              {job.video_title || "Video Job"}
-            </h3>
-            <div style={{ color: "#6b7280", fontSize: 11, marginTop: 4 }}>
-              {job.source} · {job.input_type} · Created {new Date(job.created_at).toLocaleString("en-GB")}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <span style={{
+                background: job.source === "curated" ? "#8b5cf622" : "#05966922",
+                color: job.source === "curated" ? "#8b5cf6" : "#10b981",
+                fontSize: 9,
+                fontWeight: 700,
+                padding: "2px 6px",
+                borderRadius: 4,
+                textTransform: "uppercase" as const,
+              }}>
+                {job.source === "curated" ? "Curated" : "Client"}
+              </span>
+              <h3 style={{ margin: 0, color: "white", fontSize: 16, fontWeight: 700 }}>
+                {job.video_title || job.description || "Video Job"}
+              </h3>
+            </div>
+            <div style={{ color: "#6b7280", fontSize: 11 }}>
+              {job.source_detail || job.source} · Created {new Date(job.created_at).toLocaleString("en-GB")}
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -417,7 +452,7 @@ function VideoJobDetail({
               ["Target Ratio", job.target_ratio],
               ["Created", new Date(job.created_at).toLocaleString("en-GB")],
               ["Updated", new Date(job.updated_at).toLocaleString("en-GB")],
-              ["File Size", job.file_size_bytes ? `${(job.file_size_bytes / 1024 / 1024).toFixed(1)} MB` : "—"],
+              ["File Size", "—"],
             ].map(([k, v]) => (
               <div key={k as string}>
                 <div style={{ color: "#6b7280", marginBottom: 2, fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{k}</div>
@@ -426,18 +461,23 @@ function VideoJobDetail({
             ))}
           </div>
 
-          {/* Transcript */}
-          {job.transcription && (
+          {/* Transcript / Social Copy */}
+          {(job.transcription || job.social_copy) && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ color: "#9ca3af", fontSize: 11, fontWeight: 600, marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>
-                Generated Caption / Transcript
+                {job.source === "client" ? "Generated Social Copy" : "Transcript"}
               </div>
               <div style={{
                 background: "#111827", borderRadius: 8, padding: "14px 16px",
                 fontSize: 13, color: "#d1d5db", lineHeight: 1.6,
                 maxHeight: 200, overflowY: "auto" as const,
               }}>
-                {job.transcription}
+                {job.transcription || job.social_copy}
+                {job.hashtags && (
+                  <div style={{ color: "#00D4FF", marginTop: 8, fontSize: 12 }}>
+                    {job.hashtags}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -453,8 +493,19 @@ function VideoJobDetail({
             </div>
           )}
 
-          {/* Actions */}
-          {!["approved", "rejected", "failed", "published"].includes(job.status) && (
+          {/* Error from API */}
+          {error && (
+            <div style={{
+              background: "#ef444411", border: "1px solid #ef4444",
+              borderRadius: 8, padding: "12px 14px", marginBottom: 20,
+              fontSize: 12, color: "#ef4444",
+            }}>
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+
+          {/* Approve Action */}
+          {job.status === "ready_for_review" && (
             <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
               <button
                 onClick={handleApprove}
@@ -464,17 +515,7 @@ function VideoJobDetail({
                   color: "#10b981", borderRadius: 8, padding: "10px 0",
                   cursor: acting ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13,
                 }}>
-                {acting === "approve" ? "Approving…" : "✅ Approve for Publishing"}
-              </button>
-              <button
-                onClick={handleReject}
-                disabled={acting !== null}
-                style={{
-                  flex: 1, background: "#ef444411", border: "1px solid #ef4444",
-                  color: "#ef4444", borderRadius: 8, padding: "10px 0",
-                  cursor: acting ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13,
-                }}>
-                {acting === "reject" ? "Rejecting…" : "❌ Reject"}
+                {acting === "approve" ? "Approving & Publishing…" : "✅ Approve & Publish"}
               </button>
             </div>
           )}
@@ -502,23 +543,23 @@ function VideoJobDetail({
   );
 }
 
-// ── Kanban Board ──────────────────────────────────────────────────────────────
+// ── Unified Kanban Board ─────────────────────────────────────────────────────
 
-function KanbanBoard({
+function UnifiedKanbanBoard({
   jobs,
   supabaseUrl,
   headers,
   onRefresh,
 }: {
-  jobs: VideoJob[];
+  jobs: UnifiedJob[];
   supabaseUrl: string;
   headers: Record<string, string>;
   onRefresh: () => void;
 }) {
-  const [selected, setSelected] = useState<VideoJob | null>(null);
+  const [selected, setSelected] = useState<UnifiedJob | null>(null);
 
   // Group jobs by normalised kanban column
-  const grouped: Record<string, VideoJob[]> = {};
+  const grouped: Record<string, UnifiedJob[]> = {};
   for (const col of KANBAN_COLS_A) grouped[col.key] = [];
   for (const job of jobs) {
     const col = normaliseKanbanCol(job.status);
@@ -569,7 +610,7 @@ function KanbanBoard({
                   </div>
                 )}
                 {colJobs.map(job => (
-                  <VideoJobCard key={job.id} job={job} onClick={() => setSelected(job)} />
+                  <UnifiedJobCard key={job.id} job={job} onClick={() => setSelected(job)} />
                 ))}
               </div>
             </div>
@@ -577,9 +618,9 @@ function KanbanBoard({
         })}
       </div>
 
-      {/* Detail panel */}
+      {/* Detail modal */}
       {selected && (
-        <VideoJobDetail
+        <UnifiedJobDetail
           job={selected}
           supabaseUrl={supabaseUrl}
           headers={headers}
@@ -591,172 +632,6 @@ function KanbanBoard({
   );
 }
 
-// ── ClientJob List (Pipeline B) ───────────────────────────────────────────────
-
-function ClientJobList({
-  jobs,
-  supabaseUrl,
-  headers,
-  onRefresh,
-}: {
-  jobs: ClientJob[];
-  supabaseUrl: string;
-  headers: Record<string, string>;
-  onRefresh: () => void;
-}) {
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [acting, setActing] = useState<{ id: string; action: "approve" | "reject" } | null>(null);
-
-  async function handleAction(jobId: string, action: "approve" | "reject") {
-    setActing({ id: jobId, action });
-    await fetch(`${supabaseUrl}/rest/v1/client_jobs?id=eq.${jobId}`, {
-      method: "PATCH",
-      headers: { ...headers, Prefer: "return=minimal" },
-      body: JSON.stringify({
-        approval_status: action === "approve" ? "approved" : "rejected",
-        status: action === "approve" ? "approved" : "rejected",
-      }),
-    });
-    onRefresh();
-    setActing(null);
-  }
-
-  if (jobs.length === 0) {
-    return (
-      <div style={{ color: "#4b5563", textAlign: "center" as const, padding: "48px 0", fontSize: 14 }}>
-        No client jobs yet
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
-      {jobs.map(job => {
-        const isExpanded = expanded === job.id;
-        const colour = STATUS_COLOURS[job.status] ?? "#6b7280";
-        return (
-          <div key={job.id} style={{
-            background: "#0d0d1a",
-            border: `1px solid ${colour}33`,
-            borderRadius: 12,
-            overflow: "hidden" as const,
-          }}>
-            {/* Card header — always visible */}
-            <div
-              onClick={() => setExpanded(isExpanded ? null : job.id)}
-              style={{
-                padding: "14px 18px",
-                cursor: "pointer",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                gap: 12,
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: "white", fontWeight: 600, fontSize: 14, marginBottom: 3 }}>
-                  {job.description?.slice(0, 80) || "No description"}
-                  {(job.description?.length ?? 0) > 80 ? "…" : ""}
-                </div>
-                <div style={{ color: "#6b7280", fontSize: 11 }}>
-                  {job.from_number} · {new Date(job.created_at).toLocaleString("en-GB", {
-                    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-                  })}
-                </div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 6 }}>
-                <StatusBadge status={job.status} />
-                <span style={{ fontSize: 11, color: "#4b5563" }}>
-                  music: {job.music_override ?? "auto"}
-                </span>
-              </div>
-            </div>
-
-            {/* Progress */}
-            {job.progress_pct != null && job.progress_pct < 100 && (
-              <div style={{ padding: "0 18px 10px" }}>
-                <ProgressBar pct={job.progress_pct} />
-              </div>
-            )}
-
-            {/* Expanded detail */}
-            {isExpanded && (
-              <div style={{
-                borderTop: "1px solid #1f2937",
-                padding: "16px 18px",
-                background: "#0a0a14",
-              }}>
-                {/* Transcript / social copy */}
-                {job.social_copy && (
-                  <div style={{ marginBottom: 14 }}>
-                    <div style={{ color: "#9ca3af", fontSize: 11, fontWeight: 600, marginBottom: 6 }}>
-                      SOCIAL COPY
-                    </div>
-                    <div style={{
-                      background: "#111827", borderRadius: 8,
-                      padding: "10px 14px", fontSize: 13, color: "#d1d5db", lineHeight: 1.5,
-                    }}>
-                      {job.social_copy}
-                      {job.hashtags && (
-                        <div style={{ color: "#00D4FF", marginTop: 6, fontSize: 12 }}>
-                          {job.hashtags}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Meta */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", fontSize: 12, marginBottom: 14 }}>
-                  {[
-                    ["Job ID", job.id.slice(0, 16) + "…"],
-                    ["Chat ID", job.telegram_chat_id?.toString() ?? "—"],
-                    ["Approval", job.approval_status ?? "pending"],
-                    ["Updated", new Date(job.updated_at).toLocaleString("en-GB")],
-                  ].map(([k, v]) => (
-                    <div key={k as string}>
-                      <div style={{ color: "#6b7280", marginBottom: 2 }}>{k}</div>
-                      <div style={{ color: "#e5e7eb" }}>{v}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Approve / Reject */}
-                {job.status === "preview_sent" && job.approval_status === "pending" && (
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <button
-                      onClick={() => handleAction(job.id, "approve")}
-                      disabled={acting !== null}
-                      style={{
-                        flex: 1, background: "#05966922", border: "1px solid #059669",
-                        color: "#10b981", borderRadius: 8, padding: "8px 0",
-                        cursor: acting ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13,
-                      }}>
-                      {acting?.id === job.id && acting.action === "approve" ? "Approving…" : "✅ Approve"}
-                    </button>
-                    <button
-                      onClick={() => handleAction(job.id, "reject")}
-                      disabled={acting !== null}
-                      style={{
-                        flex: 1, background: "#ef444411", border: "1px solid #ef4444",
-                        color: "#ef4444", borderRadius: 8, padding: "8px 0",
-                        cursor: acting ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13,
-                      }}>
-                      {acting?.id === job.id && acting.action === "reject" ? "Rejecting…" : "❌ Reject"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Main Component ────────────────────────────────────────────────────────────
-
 export function VideoMedia({
   supabaseUrl,
   supabaseKey,
@@ -766,7 +641,7 @@ export function VideoMedia({
 }) {
   const [videoJobs, setVideoJobs] = useState<VideoJob[]>([]);
   const [clientJobs, setClientJobs] = useState<ClientJob[]>([]);
-  const [tab, setTab] = useState<"kanban" | "client" | "brands">("kanban");
+  const [tab, setTab] = useState<"kanban" | "brands">("kanban");
   const [lastPoll, setLastPoll] = useState<Date | null>(null);
   const [pollError, setPollError] = useState(false);
 
@@ -775,6 +650,43 @@ export function VideoMedia({
     Authorization: `Bearer ${supabaseKey}`,
     "Content-Type": "application/json",
   };
+
+  // Build unified job list from both sources
+  const unifiedJobs: UnifiedJob[] = [
+    ...videoJobs.map(j => ({
+      id: j.id,
+      created_at: j.created_at,
+      updated_at: j.updated_at,
+      status: j.status,
+      progress_pct: j.progress_pct,
+      output_public_url: j.output_public_url,
+      duration_secs: j.duration_secs,
+      video_title: j.video_title,
+      transcription: j.transcription,
+      source: "curated" as const,
+      source_detail: j.source,
+      error_message: j.error_message,
+      target_ratio: j.target_ratio,
+    })),
+    ...clientJobs.map(j => ({
+      id: j.id,
+      created_at: j.created_at,
+      updated_at: j.updated_at,
+      status: j.status === "preview_sent" && j.approval_status === "pending" ? "ready_for_review" : j.status,
+      progress_pct: j.progress_pct,
+      output_public_url: null,
+      duration_secs: null,
+      video_title: j.description || null,
+      transcription: j.social_copy || null,
+      source: "client" as const,
+      source_detail: j.from_number,
+      error_message: null,
+      target_ratio: "9:16",
+      social_copy: j.social_copy,
+      hashtags: j.hashtags,
+      description: j.description,
+    })),
+  ];
 
   const fetchVideoJobs = useCallback(async () => {
     try {
@@ -818,11 +730,13 @@ export function VideoMedia({
     return () => clearInterval(t);
   }, [refreshAll]);
 
-  // Stats
-  const vjActive = videoJobs.filter(j => PROCESSING_STATUSES.has(j.status) || j.status === "queued").length;
-  const vjApproved = videoJobs.filter(j => j.status === "approved" || j.status === "done").length;
-  const vjFailed = videoJobs.filter(j => j.status === "failed").length;
-  const cjPending = clientJobs.filter(j => j.status === "preview_sent" && j.approval_status === "pending").length;
+  // Stats from unified jobs
+  const totalJobs = unifiedJobs.length;
+  const activeJobs = unifiedJobs.filter(j => PROCESSING_STATUSES.has(j.status) || j.status === "queued").length;
+  const readyJobs = unifiedJobs.filter(j => j.status === "ready_for_review").length;
+  const approvedJobs = unifiedJobs.filter(j => j.status === "approved").length;
+  const publishedJobs = unifiedJobs.filter(j => j.status === "published").length;
+  const failedJobs = unifiedJobs.filter(j => j.status === "failed").length;
 
   return (
     <div style={{ padding: "0 0 48px 0" }}>
@@ -833,7 +747,7 @@ export function VideoMedia({
             🎬 Video Pipeline
           </h2>
           <p style={{ color: "#6b7280", fontSize: 13, marginTop: 4, margin: 0 }}>
-            Pipeline A (YouTube → Kanban) + Pipeline B (Client uploads) · 5s live polling
+            Unified Kanban — Curated + Client Jobs · 5s live polling
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -859,13 +773,14 @@ export function VideoMedia({
       </div>
 
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 24 }}>
         {[
-          { label: "Total (A)", value: videoJobs.length, colour: "#00D4FF" },
-          { label: "Active (A)", value: vjActive, colour: "#f59e0b" },
-          { label: "Approved (A)", value: vjApproved, colour: "#059669" },
-          { label: "Failed (A)", value: vjFailed, colour: "#ef4444" },
-          { label: "Awaiting ✅ (B)", value: cjPending, colour: "#06b6d4" },
+          { label: "Total Jobs", value: totalJobs, colour: "#00D4FF" },
+          { label: "Processing", value: activeJobs, colour: "#f59e0b" },
+          { label: "Ready for Review", value: readyJobs, colour: "#06b6d4" },
+          { label: "Approved", value: approvedJobs, colour: "#059669" },
+          { label: "Published", value: publishedJobs, colour: "#10b981" },
+          { label: "Failed", value: failedJobs, colour: "#ef4444" },
         ].map(s => (
           <div key={s.label} style={{
             background: "#0d0d1a",
@@ -882,8 +797,7 @@ export function VideoMedia({
       {/* Tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         {([
-          { key: "kanban", label: "📋 Kanban (Pipeline A)" },
-          { key: "client", label: `📥 Client Uploads (${clientJobs.length})` },
+          { key: "kanban", label: "📋 All Jobs (Unified)" },
           { key: "brands", label: "🎨 Brand Kits" },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{
@@ -898,23 +812,13 @@ export function VideoMedia({
         ))}
       </div>
 
-      {/* ── Kanban (Pipeline A — video_jobs) ── */}
+      {/* ── Unified Kanban (All Jobs) ── */}
       {tab === "kanban" && (
-        <KanbanBoard
-          jobs={videoJobs}
+        <UnifiedKanbanBoard
+          jobs={unifiedJobs}
           supabaseUrl={supabaseUrl}
           headers={headers}
           onRefresh={refreshAll}
-        />
-      )}
-
-      {/* ── Client Uploads (Pipeline B — client_jobs) ── */}
-      {tab === "client" && (
-        <ClientJobList
-          jobs={clientJobs}
-          supabaseUrl={supabaseUrl}
-          headers={headers}
-          onRefresh={fetchClientJobs}
         />
       )}
 
